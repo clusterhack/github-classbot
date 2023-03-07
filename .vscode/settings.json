@@ -1,0 +1,8 @@
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+
+  "markdownlint.config": {
+    "MD033": false  // no-inline-html  
+  }
+}
