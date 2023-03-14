@@ -204,7 +204,7 @@ export default async function (
     return;
   }
 
-  const log = app.log.child({ name: "watchdog" });
+  const log = app.log.child({ name: "watchdog", repo: `${owner}/${repo}` });
 
   // 1. Validations
   let issueDetails = "";

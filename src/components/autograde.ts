@@ -21,7 +21,7 @@ export default async function (
     return;
   }
 
-  const log = app.log.child({ name: "autograde" });
+  const log = app.log.child({ name: "autograde", repo: `${owner}/${repo}` });
 
   if (context.payload.check_suite.head_branch !== config.submission.branch) {
     log.info(`Skipping check run on branch: ${context.payload.check_suite.head_branch}`);

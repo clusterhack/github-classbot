@@ -97,7 +97,7 @@ export default async function (
     return;
   }
 
-  const log = app.log.child({ name: "badges" });
+  const log = app.log.child({ name: "badges", repo: `${owner}/${repo}` });
 
   if (
     context.payload.action !== "completed" ||
