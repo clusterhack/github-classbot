@@ -1,9 +1,13 @@
 // eslint-disable-next-line node/no-extraneous-require
-require("dotenv").config();
+require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH });
 
-import { Context, Probot } from "probot";
+import { Model } from "objection";
+import Knex from "knex";
+import { ApplicationFunction, Context, Probot } from "probot";
 
 import { getConfig } from "./config";
+import { sessionMiddleware } from "./session";
+import { authMiddleware, oauthRoutes } from "./auth";
 import watchdog from "./components/watchdog";
 import autograde from "./components/autograde";
 import badges from "./components/badges";
@@ -36,8 +40,7 @@ function classbotSkipRepo(owner: string, repo: string): boolean {
   if (repo.match(CLASSBOT_REPO_NAME_PATTERN) === null) return true;
   return false;
 }
-
-export default (app: Probot) => {
+const classbotApp: ApplicationFunction = (app: Probot, { getRouter }) => {
   app.log.info("Classbot starting...");
 
   app.log.info(`Classbot environment:
@@ -46,7 +49,31 @@ CLASSBOT_USERNAME: '${CLASSBOT_USERNAME}'
 CLASSBOT_USERID: '${CLASSBOT_USERID}'
 CLASSBOT_REPO_OWNER_PATTERN: ${CLASSBOT_REPO_OWNER_PATTERN}
 CLASSBOT_REPO_NAME_PATTERN: ${CLASSBOT_REPO_NAME_PATTERN}
+CLASSBOT_DB_DATABASE: ${process.env.CLASSBOT_DB_DATABASE}
+CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   `);
+
+  /***********************************************************************
+   * Database
+   */
+
+  const knex = Knex({
+    client: "mysql",
+    useNullAsDefault: true,
+    connection: {
+      // host: "127.0.0.1",
+      // port: 3306,
+      user: process.env.CLASSBOT_DB_USER,
+      password: process.env.CLASSBOT_DB_PASSWORD,
+      database: process.env.CLASSBOT_DB_DATABASE,
+    },
+  });
+
+  Model.knex(knex);
+
+  /***********************************************************************
+   * Webhooks
+   */
 
   app.on("push", async context => {
     // app.log.info(context);
@@ -91,4 +118,38 @@ CLASSBOT_REPO_NAME_PATTERN: ${CLASSBOT_REPO_NAME_PATTERN}
   //   //app.log.info(context);
   //   app.log.info("pull_request.opened");
   // });
+
+  /***********************************************************************
+   * Additional routes
+   */
+
+  const router = getRouter!("/classbot");
+
+  // Sessions
+  router.use(sessionMiddleware());
+
+  // OAuth login
+  router.use(
+    "/oauth",
+    oauthRoutes("/classbot/oauth", "pybait", {
+      redirect: "/classbot",
+      logger: app.log.child({ name: "oauth-login" }),
+    })
+  );
+
+  // User authentication
+  router.use(
+    authMiddleware("/classbot/oauth/login", {
+      loadUser: true,
+      logger: app.log.child({ name: "auth-session" }),
+    })
+  );
+
+  // XXX Just for basic testing...
+  router.get("/", async (req, res) => {
+    const name = req.user?.name || req.session.data?.userid;
+    res.send(`Hello, ${name}!`);
+  });
 };
+
+export default classbotApp;
