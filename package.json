@@ -14,7 +14,7 @@
     "classroom"
   ],
   "scripts": {
-    "build": "time -f 'Done in %esec (%P); %MKB' tsc",
+    "build": "time -f 'Done in %esec (%P); %MKB' tsc --project tsconfig.bot.json",
     "start": "node lib/main.js",
     "dev": "DOTENV_CONFIG_PATH=.env.dev node ./lib/main.js",
     "deploy": "pm2 start --name classbot --time lib/main.js",
