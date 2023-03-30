@@ -22,6 +22,11 @@ export function stringEnumValues<K extends string, V extends string>(
   return Object.values(strEnum);
 }
 
+// Attempts to guess truthiness of an environment variable value
+export function isEnvTruthy(value?: string): boolean {
+  return value?.toLowerCase() === "true" || Boolean(parseInt(value as string));
+}
+
 // Same as express.RequestHandler but returning Promise<void> rather than void
 export type AsyncRequestHandler = {
   (...args: Parameters<express.RequestHandler>): Promise<void>;

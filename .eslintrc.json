@@ -2,7 +2,7 @@
   "extends": [
     "eslint:recommended",
     "plugin:node/recommended",
-    "prettier"
+    "plugin:prettier/recommended"
   ],
   "plugins": [
     "node",
@@ -70,6 +70,10 @@
         "ecmaVersion": 2018,
         "sourceType": "module"
       }
+    },
+    {
+      "files": ["src-ui/**/*"],
+      "extends": ["plugin:react/recommended"]
     }
   ]
 }

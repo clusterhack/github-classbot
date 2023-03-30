@@ -1,12 +1,17 @@
 // eslint-disable-next-line node/no-extraneous-require
 require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH });
 
+import path from "node:path";
 import helmet from "helmet";
 import { Model } from "objection";
 import Knex from "knex";
+import express from "express";
+// eslint-disable-next-line node/no-unpublished-import
+import { createProxyMiddleware } from "http-proxy-middleware"; // Only used for dev server
 import { ApplicationFunction, Context, Probot } from "probot";
 
 import { getConfig } from "./config";
+import { isEnvTruthy } from "./util";
 import { sessionMiddleware } from "./session";
 import { authMiddleware, oauthRoutes } from "./auth";
 import { apiRoutes } from "./api";
@@ -144,11 +149,22 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
 
   const router = getRouter!("/classbot");
 
+  const proxyViteServer =
+    process.env.NODE_ENV === "development" && !isEnvTruthy(process.env.VITE_DEV_STATIC);
+
   // Basic security (helmet)
   router.use(
     helmet({
       referrerPolicy: { policy: "same-origin" },
       hidePoweredBy: false,
+      // Vite dev server injects script into index, for HMR websockets; ok to allow just in dev
+      ...(proxyViteServer
+        ? {
+            contentSecurityPolicy: {
+              directives: { "script-src": ["'self'", "https:", "'unsafe-inline'"] },
+            },
+          }
+        : {}),
     })
   );
 
@@ -181,6 +197,26 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
 
   // REST API endpoints
   router.use("/api", apiRoutes({ logger: log?.child({ name: "api" }) }));
+
+  // Frontend  // TODO?
+  // XXX We *could* use vite server in middleware mode (https://vitejs.dev/config/server-options.html#server-middlewaremode)
+  //   but, since we use two very different tsconfigs for bot and ui, I don't want / have time to deal with surprises right now
+  //  (...however small the chance).
+  if (!proxyViteServer) {
+    // Serve static assets from build dir
+    log?.info("Frontend: directly serving bundled static assets");
+    router.use("/ui", express.static(path.join(__dirname, "../lib-ui")));
+  } else {
+    // Proxy to dev server (easier this way around, with all the webhook HTTPS stuff etc)
+    log?.info("Frontend: proxying to Vite dev server");
+    router.use(
+      "/ui",
+      createProxyMiddleware({
+        target: `http://localhost:${process.env.VITE_DEV_PORT || 4000}/`,
+        ws: true,
+      })
+    );
+  }
 
   // XXX Just for basic testing...
   router.get("/", (req, res) => {
