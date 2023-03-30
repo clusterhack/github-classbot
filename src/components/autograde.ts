@@ -15,12 +15,11 @@ export default async function (
   config: ClassbotConfig,
   repoInfo?: { owner: string; repo: string }
 ): Promise<void> {
-  const { owner, repo } = repoInfo || context.repo();
-
   if (!isComponentEnabled(config.autograde)) {
     return;
   }
 
+  const { owner, repo } = repoInfo || context.repo();
   const log = app.log.child({ name: "autograde", repo: `${owner}/${repo}` });
 
   if (context.payload.check_suite.head_branch !== config.submission.branch) {

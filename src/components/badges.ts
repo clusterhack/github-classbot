@@ -91,12 +91,11 @@ export default async function (
   botUser: { name: string; email: string },
   repoInfo?: { owner: string; repo: string }
 ): Promise<void> {
-  const { owner, repo } = repoInfo || context.repo();
-
   if (!isComponentEnabled(config.badges)) {
     return;
   }
 
+  const { owner, repo } = repoInfo || context.repo();
   const log = app.log.child({ name: "badges", repo: `${owner}/${repo}` });
 
   if (
@@ -125,7 +124,7 @@ export default async function (
   const sha = oldContents.sha;
 
   if (sha === undefined) {
-    log.info(`ERROR: Could not find SHA of ${badgeFile}: ${oldContents.message}`);
+    log.error(`ERROR: Could not find SHA of ${badgeFile}: ${oldContents.message}`);
     return;
   }
 

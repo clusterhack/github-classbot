@@ -9,7 +9,7 @@
     "prettier"
   ],
   "rules": {
-    "prettier/prettier": "error",
+    "prettier/prettier": "warn",
     "block-scoped-var": "error",
     "eqeqeq": "error",
     "no-var": "error",
@@ -54,7 +54,17 @@
         "node/no-missing-require": "off",
         "node/shebang": "off",
         "no-dupe-class-members": "off",
-        "require-atomic-updates": "off"
+        "require-atomic-updates": "off",
+        // From https://stackoverflow.com/a/64067915
+        "no-unused-vars": "off", // Disable base rule (may report incorrect errors)
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          { 
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "caughtErrorsIgnorePattern": "^_"
+          }
+        ]
       },
       "parserOptions": {
         "ecmaVersion": 2018,

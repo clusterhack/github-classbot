@@ -4,17 +4,9 @@ import { Context } from "probot";
 import { ClassbotConfig, ClassbotComponentConfig, ClassbotConfigError } from "./types";
 
 import defaultConfig from "./config_default";
+import { parseAssignmentRepo } from "./util";
 
 console.log(defaultConfig);
-
-// Extract assignment and username from Github Classroom name.
-// XXX Assumes that the assignment name does *not* contain any dashes.
-function parseAssignmentRepo(repo: string) {
-  return repo.match(/^(?<assignment>[^-]*)-(?<user>.*)$/)?.groups as {
-    assignment?: string;
-    username?: string;
-  };
-}
 
 function configOverrideApply(
   config: ClassbotConfig,
@@ -26,6 +18,7 @@ function configOverrideApply(
   // TODO Can we iterate over "keys of type ClassbotComponentConfig" with a TS expression??
   if (config.watchdog === undefined) delete result.watchdog;
   if (config.autograde === undefined) delete result.autograde;
+  if (config.gradelog === undefined) delete result.gradelog;
   if (config.badges === undefined) delete result.badges;
   return result;
 }

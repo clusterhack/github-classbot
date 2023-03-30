@@ -1,8 +1,18 @@
 import { AutogradeConfig } from "./components/autograde";
 import { BadgesConfig } from "./components/badges";
+import { GradeLogConfig } from "./components/gradelog";
 import { WatchdogConfig } from "./components/watchdog";
 
 export class ClassbotError extends Error {}
+
+export class HTTPError extends Error {
+  status: number;
+
+  constructor(message?: string, status?: number) {
+    super(message);
+    this.status = status || 400; // HTTP 400 Bad request
+  }
+}
 
 // TODO Just move these to config.ts and delete types.ts (or: perhaps keep manifest stuff separate)
 
@@ -41,6 +51,7 @@ export interface ClassbotConfig {
   watchdog?: WatchdogConfig;
   autograde?: AutogradeConfig;
   badges?: BadgesConfig;
+  gradelog?: GradeLogConfig;
 }
 
 export function normalizeFileManifest(manifest: FileManifest, branch?: string): readonly string[] {

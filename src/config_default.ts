@@ -20,6 +20,10 @@ const defaultConfig: ClassbotConfig = {
       template: "{{{description}}}",
     },
   },
+  gradelog: {
+    job_name: "Autograding",
+    artifact_name: "autograde",
+  },
   badges: {
     branch: "status",
     path: "badges",

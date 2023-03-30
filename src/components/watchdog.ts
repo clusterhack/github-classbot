@@ -5,6 +5,9 @@ import Mustache from "mustache";
 
 import { ClassbotConfig, ClassbotComponentConfig, normalizeFileManifest } from "../types";
 import { isComponentEnabled } from "../config";
+import { parseAssignmentRepo } from "../util";
+import { Assignment } from "../db/models/assignment";
+import { Alert } from "../db/models/alert";
 
 export interface WatchdogConfig extends ClassbotComponentConfig {
   validate_files?: boolean;
@@ -198,16 +201,26 @@ export default async function (
   config: ClassbotConfig,
   repoInfo?: { owner: string; repo: string }
 ): Promise<void> {
-  const { owner, repo } = repoInfo || context.repo();
-
   if (!isComponentEnabled(config.watchdog)) {
     return;
   }
 
+  const { owner, repo } = repoInfo || context.repo();
   const log = app.log.child({ name: "watchdog", repo: `${owner}/${repo}` });
 
   // 1. Validations
-  let issueDetails = "";
+  type IssueDetails = { description: string } & (
+    | {
+        type: "invalid-files";
+        files: readonly string[];
+      }
+    | {
+        type: "invalid-users";
+        users: readonly string[];
+      }
+  );
+  let issueBodyMd = "";
+  const issueDetails: IssueDetails[] = [];
 
   // Validate filenames modified/deleted/added
   if (config.watchdog.validate_files === true) {
@@ -225,7 +238,12 @@ export default async function (
     );
     if (invalidFiles.length > 0) {
       // eslint-disable-next-line prettier/prettier
-      issueDetails += `* The following file(s) were modified: ${markdownIdList(invalidFiles)}\n`;
+      issueBodyMd += `* The following file(s) were modified: ${markdownIdList(invalidFiles)}\n`;
+      issueDetails.push({
+        type: "invalid-files",
+        description: "Commit modified unexpected files",
+        files: invalidFiles,
+      });
     }
   }
 
@@ -250,11 +268,16 @@ export default async function (
 
     const invalidUsers = findInvalidCommitAuthors(context.payload.commits, authors, commiters);
     if (invalidUsers.length > 0) {
-      issueDetails += `* The following user(s) commited: ${markdownIdList(invalidUsers)}\n`;
+      issueBodyMd += `* The following user(s) commited: ${markdownIdList(invalidUsers)}\n`;
+      issueDetails.push({
+        type: "invalid-users",
+        description: "Commit authored by unexpected users",
+        users: invalidUsers,
+      });
     }
   }
 
-  // File issue (create or update), if any validations failed
+  // File GitHub issue (create or update) and log alert, if any validations failed
   if (issueDetails) {
     log.info(`Validation(s) failed on push by ${owner}`);
     // Construct markdown summary of commits
@@ -263,8 +286,39 @@ export default async function (
       const commitSummary = commit.message.split("\n", 1)[0];
       commitDetails += `* [${commitSummary}](${commit.url}) (by ${commit.author.name})\n`;
     }
-    await fileWatchdogIssue(config.watchdog, context, `${issueDetails}\n${commitDetails}`);
+    const issueResp = await fileWatchdogIssue(
+      config.watchdog,
+      context,
+      `${issueBodyMd}\n${commitDetails}`
+    );
+    const issueNumber = issueResp.data.number;
     log.info("Filed watchdog issue");
+
+    try {
+      // Figure out author of push head (after) sha
+      const commitResp = await context.octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: context.payload.after,
+      });
+      // Figure out assignment id (database)
+      const assignmentName = parseAssignmentRepo(repo, commitResp.data.author?.login)?.assignment;
+      const assignmentRows = await Assignment.query().where({ org: owner, name: assignmentName });
+      const assignment = assignmentRows[0];
+
+      await Alert.query().insert({
+        timestamp: new Date(),
+        userid: commitResp.data.author?.id,
+        assignment_id: assignment?.id,
+        repo: `${owner}/${repo}`,
+        issue: issueNumber,
+        sha: context.payload.after,
+        details: issueDetails,
+      });
+      log.info("Logged alert into database");
+    } catch (err) {
+      log.error(`Failed to log alert into database: ${err}`);
+    }
   }
 
   // 2. Annotations

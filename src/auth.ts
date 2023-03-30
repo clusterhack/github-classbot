@@ -4,14 +4,12 @@ import fetch from "node-fetch";
 
 import { Logger, ProbotOctokit } from "probot";
 
+import { HTTPError } from "./types";
 import { User, UserRole } from "./db/models/user";
 
-export class AuthError extends Error {
-  status: number;
-
+export class AuthError extends HTTPError {
   constructor(message?: string, status?: number) {
-    super(message);
-    this.status = status || 401; // HTTP 401 Unauthorized (default)
+    super(message, status || 401); // HTTP 401 Unauthorized (default)
   }
 }
 
@@ -30,15 +28,17 @@ export interface AuthMiddlewareOptions {
 
 type LoginReqQuery = { path?: string };
 
-export function oauthRoutes(route_path: string, org_name: string, options?: OAuthRoutesOptions) {
+export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
   const router = express.Router();
   const log = options?.logger;
 
   router.get("/login", (req, res) => {
+    log?.info(`OAuth login: baseUrl = ${req.baseUrl}`);
     const { path: reqPath }: LoginReqQuery = req.query;
     const redirect = reqPath || options?.redirect || "/";
 
     if (req.session.data && req.session.data.username) {
+      // Send them back (where they came from)
       res.redirect(redirect);
       return;
     }
@@ -48,7 +48,7 @@ export function oauthRoutes(route_path: string, org_name: string, options?: OAut
 
     const params = querystring.stringify({
       client_id: process.env.GITHUB_CLIENT_ID,
-      redirect_uri: `${protocol}://${host}${route_path}/cb`,
+      redirect_uri: `${protocol}://${host}${req.baseUrl}/cb`,
       allow_signup: false,
       scope: "",
       // TODO? Add random prefix to state (eventually?); if so, don't forget cb route below..
@@ -64,6 +64,7 @@ export function oauthRoutes(route_path: string, org_name: string, options?: OAut
   router.get("/cb", (req, res, next) =>
     Promise.resolve()
       .then(async () => {
+        log?.info(`OAuth cb: baseUrl = ${req.baseUrl}`);
         // Deal with errors first
         if (req.query.error) {
           throw new OAuthError((req.query.error_description || req.query.error) as string);
@@ -108,7 +109,7 @@ export function oauthRoutes(route_path: string, org_name: string, options?: OAut
 
         // Check if user exists
         const user = await User.query().findById(userid);
-        log?.info(`User..findById(${userid}) -> ${user}`);
+        log?.info(`User..findById(${userid}) ->\n${JSON.stringify(user, undefined, 2)}`);
 
         // Create user if they do not exist
         if (user === undefined) {
@@ -150,7 +151,8 @@ export function oauthRoutes(route_path: string, org_name: string, options?: OAut
         log?.info(`Set session.data to:\n${JSON.stringify(req.session.data, undefined, 2)}`);
 
         // Redirect after login
-        res.redirect(tokenData.get("state") || options?.redirect || "/");
+        const stateParam = typeof req.query.state === "string" ? req.query.state : undefined;
+        res.redirect(stateParam || options?.redirect || "/");
       })
       .catch(next)
   );
@@ -169,12 +171,14 @@ declare global {
 }
 
 export function authMiddleware(login_url: string, options?: AuthMiddlewareOptions) {
+  const log = options?.logger;
+
   const handler: express.RequestHandler = (req, res, next) =>
     Promise.resolve()
       .then(async () => {
         const userData = req.session.data;
         if (userData && userData.userid) {
-          options?.logger?.info(`Session user ${userData.username} (${userData.userid})`);
+          log?.info(`Session user ${userData.username} (${userData.userid})`);
           if (options?.loadUser === true) {
             req.user = await User.query().findById(userData.userid);
             if (req.user === undefined) {
@@ -183,10 +187,30 @@ export function authMiddleware(login_url: string, options?: AuthMiddlewareOption
           }
           next();
         } else {
-          options?.logger?.info("No user session cookie, redirecting to login");
-          res.redirect(`${login_url}?${querystring.stringify({ path: req.path })}`);
+          const url = `${req.baseUrl}/${req.url}`;
+          log?.info(`No session cookie, redirecting from ${url} to ${login_url}`);
+          res.redirect(`${login_url}?${querystring.stringify({ path: url })}`);
         }
       })
       .catch(next);
+  return handler;
+}
+
+export function requireRole(roles: readonly UserRole[]): express.RequestHandler;
+export function requireRole(...roles: readonly UserRole[]): express.RequestHandler;
+export function requireRole(
+  ...args: readonly (UserRole | readonly UserRole[])[]
+): express.RequestHandler {
+  const roles = args[0] instanceof Array ? args[0] : (args as readonly UserRole[]);
+  const handler: express.RequestHandler = (req, _res, next) => {
+    if (!req.user?.role) {
+      next(new AuthError("Unknown user role"));
+    } else if (!roles.includes(req.user.role)) {
+      next(new AuthError("User does not have required role privileges", 403)); // HTPP Forbidden
+    } else {
+      // console.log(`User role ${req.user.role} satisfies requirement ${JSON.stringify(roles)}`);
+      next();
+    }
+  };
   return handler;
 }

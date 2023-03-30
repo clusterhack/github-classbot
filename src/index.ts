@@ -1,6 +1,7 @@
 // eslint-disable-next-line node/no-extraneous-require
 require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH });
 
+import helmet from "helmet";
 import { Model } from "objection";
 import Knex from "knex";
 import { ApplicationFunction, Context, Probot } from "probot";
@@ -8,9 +9,11 @@ import { ApplicationFunction, Context, Probot } from "probot";
 import { getConfig } from "./config";
 import { sessionMiddleware } from "./session";
 import { authMiddleware, oauthRoutes } from "./auth";
+import { apiRoutes } from "./api";
 import watchdog from "./components/watchdog";
 import autograde from "./components/autograde";
 import badges from "./components/badges";
+import gradelog from "./components/gradelog";
 
 // Global config constants
 // TODO Fix default fallbacks (or, alternatively, fail on undefined)
@@ -40,10 +43,13 @@ function classbotSkipRepo(owner: string, repo: string): boolean {
   if (repo.match(CLASSBOT_REPO_NAME_PATTERN) === null) return true;
   return false;
 }
-const classbotApp: ApplicationFunction = (app: Probot, { getRouter }) => {
-  app.log.info("Classbot starting...");
 
-  app.log.info(`Classbot environment:
+const classbotApp: ApplicationFunction = (app: Probot, { getRouter }) => {
+  const log = app.log;
+
+  log?.info("Classbot starting...");
+
+  log?.info(`Classbot environment:
 NODE_ENV: ${process.env.NODE_ENV}
 CLASSBOT_USERNAME: '${CLASSBOT_USERNAME}'
 CLASSBOT_USERID: '${CLASSBOT_USERID}'
@@ -76,47 +82,60 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
    */
 
   app.on("push", async context => {
-    // app.log.info(context);
-    app.log.info("Watchdog: Start (on push)");
+    // log?.info(context);
+    log?.info("Watchdog: Start (on push)");
     const { owner, repo } = context.repo();
-    app.log.info(`Watchdog: owner/repo = ${owner}/${repo}`);
+    log?.info(`Watchdog: owner/repo = ${owner}/${repo}`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
     await watchdog(app, context, config, { owner, repo });
-    app.log.info("Watchdog: Done");
+    log?.info("Watchdog: Done");
   });
+
   app.on("check_suite.requested", async context => {
-    // app.log.info(context);
-    app.log.info("Autograde: Start (on check_suite.requested)");
+    // log?.info(context);
+    log?.info("Autograde: Start (on check_suite.requested)");
     const { owner, repo } = context.repo();
-    app.log.info(`Autograde: owner/repo = ${owner}/${repo}`);
+    log?.info(`Autograde: owner/repo = ${owner}/${repo}`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
     await autograde(app, context, config, { owner, repo });
-    app.log.info("Autograde: Done");
+    log?.info("Autograde: Done");
   });
+
   app.on("check_run", async context => {
-    //app.log.info(context);
-    app.log.info("Badges: Start (on check_run)");
+    // log?.info(context);
+    log?.info("Badges: Start (on check_run)");
     const { owner, repo } = context.repo();
-    app.log.info(`Badges: owner/repo = ${owner}/${repo}`);
+    log?.info(`Badges: owner/repo = ${owner}/${repo}`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
     await badges(app, context, config, classbotGitUserConfig(context), { owner, repo });
-    app.log.info("Badges: Done");
+    log?.info("Badges: Done");
+  });
+
+  app.on("workflow_job.completed", async context => {
+    log?.info("Gradelog: Start (on workflow_job.completed");
+    const { owner, repo } = context.repo();
+    log?.info(`Gradelog: owner/repo = ${owner}/${repo}`);
+    if (classbotSkipRepo(owner, repo)) return;
+    const config = await getConfig(context);
+
+    await gradelog(app, context, config, { owner, repo });
+    log?.info("Gradelog: Done");
   });
 
   // app.on("fork", async (context) => {
-  //   //app.log.info(context);
-  //   app.log.info("fork");
+  //   // log?.info(context);
+  //   log?.info("fork");
   // });
 
   // app.on("pull_request.opened", async (context) => {
-  //   //app.log.info(context);
-  //   app.log.info("pull_request.opened");
+  //   // log?.info(context);
+  //   log?.info("pull_request.opened");
   // });
 
   /***********************************************************************
@@ -125,15 +144,30 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
 
   const router = getRouter!("/classbot");
 
+  // Basic security (helmet)
+  router.use(
+    helmet({
+      referrerPolicy: { policy: "same-origin" },
+      hidePoweredBy: false,
+    })
+  );
+
   // Sessions
-  router.use(sessionMiddleware());
+  router.use(
+    sessionMiddleware({
+      proxy: true,
+      sameSite: "none",
+      secure: true,
+      logger: log?.child({ name: "session-store" }),
+    })
+  );
 
   // OAuth login
   router.use(
     "/oauth",
-    oauthRoutes("/classbot/oauth", "pybait", {
+    oauthRoutes("pybait", {
       redirect: "/classbot",
-      logger: app.log.child({ name: "oauth-login" }),
+      logger: log?.child({ name: "oauth-login" }),
     })
   );
 
@@ -141,12 +175,15 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   router.use(
     authMiddleware("/classbot/oauth/login", {
       loadUser: true,
-      logger: app.log.child({ name: "auth-session" }),
+      logger: log?.child({ name: "auth-session" }),
     })
   );
 
+  // REST API endpoints
+  router.use("/api", apiRoutes({ logger: log?.child({ name: "api" }) }));
+
   // XXX Just for basic testing...
-  router.get("/", async (req, res) => {
+  router.get("/", (req, res) => {
     const name = req.user?.name || req.session.data?.userid;
     res.send(`Hello, ${name}!`);
   });
