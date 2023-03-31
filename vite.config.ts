@@ -11,7 +11,7 @@ export default defineConfig({
   clearScreen: false,
   build: {
     outDir: "../lib-ui",
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
   server: {
     port: 4000, // TODO Move to dotenv files (when time)
