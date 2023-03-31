@@ -6,9 +6,9 @@ import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import classbotLogo from "./assets/classbot.png";
+import classbotLogo from "../assets/classbot.png";
 
-function App() {
+function Hello() {
   const [count, setCount] = useState(0);
 
   return (
@@ -37,4 +37,4 @@ function App() {
   );
 }
 
-export default App;
+export default Hello;
