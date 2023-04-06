@@ -7,5 +7,6 @@
   },
   "jest.autoRun": {
     "watch": false
-  }
+  },
+  "remote.autoForwardPorts": false
 }

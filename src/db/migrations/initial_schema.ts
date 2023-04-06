@@ -27,7 +27,7 @@ export async function up(knex: Knex): Promise<void> {
     })
     .createTable("memberships", table => {
       table.integer("userid").notNullable().references("users.id");
-      table.integer("orgId").notNullable().references("clasroom_orgs.id");
+      table.integer("orgId").notNullable().references("classroom_orgs.id");
       table.primary(["userid", "orgId"]);
     })
     .createTable("sessions", table => {

@@ -72,8 +72,8 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     client: "mysql",
     useNullAsDefault: true,
     connection: {
-      // host: "127.0.0.1",
-      // port: 3306,
+      host: "127.0.0.1",
+      port: 3306,
       user: process.env.CLASSBOT_DB_USER,
       password: process.env.CLASSBOT_DB_PASSWORD,
       database: process.env.CLASSBOT_DB_DATABASE,
