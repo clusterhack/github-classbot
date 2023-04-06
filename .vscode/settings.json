@@ -4,5 +4,8 @@
 
   "markdownlint.config": {
     "MD033": false  // no-inline-html  
+  },
+  "jest.autoRun": {
+    "watch": false
   }
 }
