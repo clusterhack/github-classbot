@@ -2,23 +2,7 @@ import { Model, Pojo } from "objection";
 
 import { pojoParseJSONField } from "../../util";
 import { User } from "./user";
-
-export class Assignment extends Model {
-  id!: number; // autoinc
-
-  org!: string;
-  name!: string;
-
-  due?: Date;
-
-  static get idColumn() {
-    return ["org", "name"];
-  }
-
-  static get tableName() {
-    return "assignments";
-  }
-}
+import { Assignment } from "./classroom";
 
 // Base model for all assignment submissions
 // (currently we only have code submissions via push, but.. who knows?)
@@ -84,10 +68,13 @@ export enum CodeSubmissionStatus {
 }
 
 // Extra fields (1-1 rel to AssignmentSubmission) for code submissions (via push into repo)
+// TODO? Do not export this model class?
+//   Retrieval should be via Submission.code rel mapping, but if we don't export what about
+//   insertions? can we use objection graph? RTFM when/if time...
 export class CodeSubmission extends Model {
   id!: number; // 1-1 rel (i.e., PK and FK)
 
-  repo!: string;
+  repo!: string; // Plain repo name (*without* owner; should get owner via -> assignment -> org)
   head_sha!: string;
 
   scored_by?: CodeSubmissionScoredBy;

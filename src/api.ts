@@ -6,9 +6,10 @@ import { Model } from "objection";
 
 import { HTTPError } from "./types";
 import { requireRole } from "./auth";
-import { asyncHandleExceptions } from "./util";
+import { asyncHandleExceptions, stringEnumValues } from "./util";
 import { User, UserRole } from "./db/models/user";
-import { Assignment, Submission } from "./db/models/assignment";
+import { Assignment, ClassroomOrg } from "./db/models/classroom";
+import { Submission } from "./db/models/submission";
 import { Alert } from "./db/models/alert";
 
 // TODO? Extend express.Request interface with .locals.user optional key
@@ -17,34 +18,33 @@ export interface APIRouteOptions {
   logger?: Logger;
 }
 
-type GetRecordsOptions = { org?: string; assignmentName?: string; userid?: number };
+type GetRecordsOptions = { orgName?: string; assignmentName?: string; userid?: number };
 
 // TODO Refactor: base class for Submission | Assignment
 // TODO Fix type annotations mess (narrow return type to promise of modelClass array, not Model array)
 async function getRecords(
   modelClass: typeof Model,
   opts?: GetRecordsOptions, // Omit an option to fetch all records (regardless of that value)
-  fetchRelations = ["assignment"]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchRelExpr: any = { assignment: true }
 ) {
   let query = modelClass.query();
-  if (opts?.org || opts?.assignmentName) {
-    if (!fetchRelations.includes("assignment")) {
-      fetchRelations.push("assignment");
+  if (opts?.orgName || opts?.assignmentName) {
+    // Include assignment.org anyway (even if opts.orgName is undefined)
+    if (typeof fetchRelExpr.assignment === "object") {
+      fetchRelExpr.assignment.org = true;
+    } else {
+      fetchRelExpr.assignment = { org: true };
     }
-    if (opts?.org) query = query.where("assignment:org", opts.org);
+    if (opts?.orgName) query = query.where("assignment:org:name", opts.orgName);
     if (opts?.assignmentName) query = query.where("assignment:name", opts.assignmentName);
   }
   if (opts?.userid) query = query.where("userid", opts.userid);
-  const graphRelExpr = fetchRelations.reduce(
-    (expr, rel) => Object.assign(expr, { [rel]: true }),
-    {}
-  );
-  const rows = await query.withGraphJoined(graphRelExpr, { joinOperation: "leftJoin" });
+  const rows = await query.withGraphJoined(fetchRelExpr, { joinOperation: "leftJoin" });
   // TODO? Flatten .code and/or .assignment sub-objs?
   return rows;
 }
 
-// TODO Common HTTPError subclass for all error classes (AuthError, APIError, etc)
 export class APIError extends HTTPError {}
 
 // TODO! Current fn API might make it easy to accidentally reveal other/all users' records?
@@ -54,15 +54,15 @@ export class APIError extends HTTPError {}
 function getRecordsHandler(
   modelClass: typeof Model,
   getUserId?: (req: express.Request, res: express.Response) => number,
-  fetchRelations = ["assignment"]
+  fetchRelExpr: object = { assignment: true }
 ) {
   return asyncHandleExceptions(async (req, res) => {
-    const opts = {
+    const opts: GetRecordsOptions = {
       userid: getUserId && getUserId(req, res),
-      org: req.params.orgname,
+      orgName: req.params.orgname,
       assignmentName: req.params.assname,
     };
-    const data = await getRecords(modelClass, opts, fetchRelations);
+    const data = await getRecords(modelClass, opts, fetchRelExpr);
     res.json(data);
   });
 }
@@ -72,6 +72,32 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   const requireUser = requireRole(UserRole.MEMBER, UserRole.ADMIN);
   const requireAdmin = requireRole(UserRole.ADMIN);
+
+  // Middleware to validate :userid parameter and fetch corresponding user record from database
+  // TODO Seems express has API for param validation/parsing? RTFM when time, and use that instead..?
+  const validateUserIdParam = asyncHandleExceptions(async (req, res, next) => {
+    const userid = parseInt(req.params.userid);
+    if (isNaN(userid)) {
+      throw new APIError("Invalid userid URL path parameter: ${req.params.userid}");
+    }
+    const user = await User.query().findById(userid).withGraphFetched("orgs.assignments");
+    if (user === undefined) {
+      throw new APIError(`Invalid user id: ${userid}`);
+    }
+    log?.info(`Validated userid path param to ${userid}`);
+    res.locals.user = user;
+    next();
+  });
+  // Ditto, but for :orgname parameter // TODO Ditto (post-RTFM)
+  // TODO!! Need to rewrite getRecord handler to incorporate this...
+  // const validateOrgNameParam = asyncHandleExceptions(async (req, res, next) => {
+  //   const orgname = req.params.orgname;
+  //   const org = await ClassroomOrg.query().where("name", orgname).first();
+  //   if (org === undefined) {
+  //     throw new APIError(`Invalid org name: ${orgname}`);
+  //   }
+  //   res.locals.org = org;
+  // });
 
   const apiRouter = express.Router();
   apiRouter.use(bodyParser.json());
@@ -87,7 +113,7 @@ export function apiRoutes(options?: APIRouteOptions) {
   const selfSubmissionsHandler = getRecordsHandler(
     Submission,
     (req, _res) => req.user!.id,
-    ["assignment", "code"] // XXX prettier parser seems to barf here..
+    { assignment: true, code: true } // XXX prettier parser seems to barf here without this comment..
   );
   selfRouter.get("/submissions", selfSubmissionsHandler);
   selfRouter.get("/org/:orgname/submissions", selfSubmissionsHandler);
@@ -99,23 +125,38 @@ export function apiRoutes(options?: APIRouteOptions) {
   // TODO? Refactor triplet handler registration (above) to util function (and use below as well)
   //  Or, does express API allow specifying multiple routes as eg array (RTFM, when time)?
 
-  // Middleware to validate :userid parameter and fetch corresponding user record from database
-  // TODO Seems express has API for param validation/parsing? RTFM when time, and use that instead..?
-  const validateUserIdParam = asyncHandleExceptions(async (req, res, next) => {
-    const userid = parseInt(req.params.userid);
-    if (isNaN(userid)) {
-      throw new APIError("Invalid userid URL path parameter: ${req.params.userid}");
-    }
-    const user = await User.query().findById(userid);
-    if (user === undefined) {
-      throw new APIError(`Invalid user id: ${userid}`);
-    }
-    log?.info(`Validated userid path param to ${userid}`);
-    res.locals.user = user;
-    next();
-  });
-
   // ***********************************************************************
+
+  apiRouter.post(
+    "/user/create",
+    requireAdmin,
+    asyncHandleExceptions(async (req, res) => {
+      if (req.body === undefined) {
+        throw new APIError("Missing request body");
+      }
+      const users = req.body instanceof Array ? req.body : [req.body];
+      const allowedFields = ["user", "username", "sisId", "role", "name"];
+      // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const validateUser = (user: any) => {
+        if (typeof user.id !== "number") {
+          throw new APIError(`Missing or malformed id in ${user}`);
+        }
+        if (typeof user.username !== "string") {
+          throw new APIError(`Missing or malformed username in ${user}`);
+        }
+        if (user.role && !stringEnumValues(UserRole).includes(user.role)) {
+          throw new APIError(`Invalid role in ${user}`);
+        }
+        if (!Object.keys(user).every(k => allowedFields.includes(k))) { // XXX Yech..?
+          throw new APIError(`Unexpected field in ${user}`);
+        }
+      };
+      users.forEach(u => validateUser(u));
+      const result = await User.query().insertAndFetch(users);
+      res.json(result);
+    })
+  );
 
   const adminUserRouter = express.Router({ mergeParams: true });
   apiRouter.use("/user/:userid", adminUserRouter);
@@ -147,7 +188,7 @@ export function apiRoutes(options?: APIRouteOptions) {
   const adminUserSubmissionsHandler = getRecordsHandler(
     Submission,
     (_req, res) => res.locals.user.id,
-    ["assignment", "code"]
+    { assignment: true, code: true }
   );
   adminUserRouter.get("/submissions", adminUserSubmissionsHandler);
   adminUserRouter.get("/org/:orgname/submissions", adminUserSubmissionsHandler);
@@ -159,12 +200,37 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   // ***********************************************************************
 
-  const orgRouter = express.Router({ mergeParams: true }); // All except one routes require admin role
-  apiRouter.use("/org/:orgname", orgRouter);
+  apiRouter.post(
+    "/org/create",
+    requireAdmin,
+    asyncHandleExceptions(async (req, res) => {
+      if (req.body === undefined) {
+        throw new APIError("Missing request body");
+      }
+      const org = req.body;
+      const allowedFields = ["id", "name", "description"];
+      // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof org.id !== "number") {
+        throw new APIError("Missing or malformed id field");
+      }
+      if (typeof org.name !== "string") {
+        throw new APIError("Missing or malformed name field");
+      }
+      if (!Object.keys(org).every(k => allowedFields.includes(k))) { // XXX Yech..?
+        throw new APIError("Unexpected field");
+      }
+      const result = ClassroomOrg.query().insertAndFetch(org);
+      res.json(result);
+    })
+  );
 
-  orgRouter.get(
+  const adminOrgRouter = express.Router({ mergeParams: true });
+  apiRouter.use("/org/:orgname", adminOrgRouter);
+
+  adminOrgRouter.use(requireAdmin);
+  adminOrgRouter.get(
     "/assignments",
-    requireUser, // auth role check
     asyncHandleExceptions(async (req, res) => {
       log?.info(`Get assignments url: ${req.url} baseUrl: ${req.baseUrl}`);
       log?.info(`Get assignments req.params: ${JSON.stringify(req.params, undefined, 2)}`);
@@ -174,15 +240,10 @@ export function apiRoutes(options?: APIRouteOptions) {
       res.json(data);
     })
   );
-
-  const adminOrgRouter = express.Router({ mergeParams: true }); // All orgRouter sub-routes that require admin role
-  orgRouter.use(adminOrgRouter);
-
-  adminOrgRouter.use(requireAdmin);
-  const adminOrgSubmissionsHandler = getRecordsHandler(Submission, undefined, [
-    "assignment",
-    "code",
-  ]);
+  const adminOrgSubmissionsHandler = getRecordsHandler(Submission, undefined, {
+    assignment: true,
+    code: true,
+  });
   adminOrgRouter.get("/submissions", adminOrgSubmissionsHandler);
   adminOrgRouter.get("/assignment/:assname/submissions", adminOrgSubmissionsHandler);
   const adminOrgAlertsHandler = getRecordsHandler(Alert);

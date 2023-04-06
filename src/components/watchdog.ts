@@ -2,11 +2,12 @@ import { Probot, Context } from "probot";
 import { Commit } from "@octokit/webhooks-types";
 import ignore from "ignore";
 import Mustache from "mustache";
+import { ref } from "objection";
 
 import { ClassbotConfig, ClassbotComponentConfig, normalizeFileManifest } from "../types";
 import { isComponentEnabled } from "../config";
 import { parseAssignmentRepo } from "../util";
-import { Assignment } from "../db/models/assignment";
+import { Assignment, AssignmentWithGraph } from "../db/models/classroom";
 import { Alert } from "../db/models/alert";
 
 export interface WatchdogConfig extends ClassbotComponentConfig {
@@ -278,7 +279,7 @@ export default async function (
   }
 
   // File GitHub issue (create or update) and log alert, if any validations failed
-  if (issueDetails) {
+  if (issueDetails.length > 0) {
     log.info(`Validation(s) failed on push by ${owner}`);
     // Construct markdown summary of commits
     let commitDetails = "Potentially offending commit(s):\n\n";
@@ -301,19 +302,44 @@ export default async function (
         repo,
         ref: context.payload.after,
       });
+      //log.info(`parseAssignmentRepo(${repo}, ${commitResp.data.author?.login}) -> ${JSON.stringify(parseAssignmentRepo(repo, commitResp.data.author?.login), undefined, 2)}`)
       // Figure out assignment id (database)
+      // XXX Call to parseAssignmentRepo below will fail on alerts triggered by commits *not* authored by student
+      // TODO For now, we just don't log those into db, but eventually want to find the "student owner" of the repo
+      //   (which, for GH is an external collaborator, and we don't store any mapping in our db, so.. TBD!)
       const assignmentName = parseAssignmentRepo(repo, commitResp.data.author?.login)?.assignment;
-      const assignmentRows = await Assignment.query().where({ org: owner, name: assignmentName });
-      const assignment = assignmentRows[0];
+      const assignmentOrgId = context.payload.repository.owner.id;
+      if (!assignmentName) {
+        throw new Error("Cannot parse assignment name; giving up on db record"); // XXX Hurried..
+      }
+      const assignmentRows = await Assignment.query()
+        // .where({
+        //   orgId: assignmentOrgId,
+        //   name: assignmentName,
+        // })
+        .where("orgId", assignmentOrgId)
+        .where(ref("assignments.name"), assignmentName)
+        .withGraphJoined({ org: true });
+      if (assignmentRows.length === 0) {
+        log.warn(
+          `No { orgId: ${assignmentOrgId}, name: ${assignmentName} } assignment in database; this may cause join issues later!`
+        );
+      }
+      const assignment = assignmentRows[0] as AssignmentWithGraph | undefined;
 
+      if (assignment?.org?.name !== owner) {
+        log.warn(`Repo owner ${owner} doesn't match assignment org name ${assignment?.org?.name}!`);
+      }
+
+      log.info(`issueDetails=${JSON.stringify(issueDetails, undefined, 2)}`);
       await Alert.query().insert({
         timestamp: new Date(),
         userid: commitResp.data.author?.id,
         assignment_id: assignment?.id,
-        repo: `${owner}/${repo}`,
+        repo: repo,
         issue: issueNumber,
         sha: context.payload.after,
-        details: issueDetails,
+        details: JSON.stringify(issueDetails, undefined, 2),
       });
       log.info("Logged alert into database");
     } catch (err) {

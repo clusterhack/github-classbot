@@ -1,14 +1,15 @@
 import fetch from "node-fetch";
 import JSZip from "jszip";
 import { Probot, Context } from "probot";
+// import { ref } from "objection";
 
+import { Assignment, AssignmentWithGraph } from "../db/models/classroom";
 import {
-  Assignment,
   Submission,
   CodeSubmission,
   CodeSubmissionScoredBy,
   CodeSubmissionStatus,
-} from "../db/models/assignment";
+} from "../db/models/submission";
 
 import { isComponentEnabled } from "../config";
 import { ClassbotConfig, ClassbotComponentConfig } from "../types";
@@ -60,17 +61,32 @@ export default async function (
   }
 
   // Fetch assignment from database
+  log.info(`parseAssignmentRepo(${repo}, ${commitResp.data.author.login}) -> ${JSON.stringify(parseAssignmentRepo(repo, commitResp.data.author.login), undefined, 2)}`)
   const assignmentName = parseAssignmentRepo(repo, commitResp.data.author.login)?.assignment;
+  const assignmentOrgId = context.payload.repository.owner.id;
   if (!assignmentName) {
     log.error(`Cannot parse repo ${repo} (for author ${commitResp.data.author.login}; giving up!`);
     return;
   }
-  const assignmentRows = await Assignment.query().where({ org: owner, name: assignmentName });
+  const assignmentRows = await Assignment.query()
+    // .where({
+    //   orgId: assignmentOrgId,
+    //   name: assignmentName,
+    // })
+    .where("orgId", assignmentOrgId)
+    .where("assignments.name", assignmentName)
+    .withGraphJoined({ org: true });
   if (assignmentRows.length === 0) {
-    log.error(`No { org: ${owner}, name: ${assignmentName} } assignment in database; giving up!`);
+    log.error(
+      `No { orgId: ${assignmentOrgId}, name: ${assignmentName} } assignment in database; giving up!`
+    );
     return;
   }
-  const assignment = assignmentRows[0]; // TODO? Also check .length === 1 (paranoia: DBMS should not allow)
+  const assignment = assignmentRows[0] as AssignmentWithGraph; // TODO? Also check .length === 1 (paranoia: DBMS should not allow)
+
+  if (assignment.org?.name !== owner) {
+    log.warn(`Repo owner ${owner} does not match assignment org name ${assignment.org?.name}!`);
+  }
 
   // Get autograde result JSON (from job artifacts)
   // First, find artifact id
@@ -148,7 +164,7 @@ export default async function (
     });
     await CodeSubmission.query(trx).insert({
       id: sub.id,
-      repo: `${owner}/${repo}`,
+      repo: repo,
       head_sha: context.payload.workflow_job.head_sha,
       scored_by: CodeSubmissionScoredBy.ACTION,
       check_run_id: parseCheckRunId(context.payload.workflow_job.check_run_url),

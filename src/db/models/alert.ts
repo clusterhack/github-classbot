@@ -2,7 +2,7 @@ import { Model, Pojo } from "objection";
 
 import { pojoParseJSONField } from "../../util";
 import { User } from "./user";
-import { Assignment } from "./assignment";
+import { Assignment } from "./classroom";
 
 export class Alert extends Model {
   id!: number; // autoinc
@@ -13,12 +13,12 @@ export class Alert extends Model {
   userid?: number;
   assignment_id?: number;
 
-  repo?: string;
+  repo?: string; // Plain name (*without* owner; that should be retrieved via assignment->org)
   issue?: number;
   sha?: string;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  details: any; // json
+  details?: any; // json
 
   // TODO? See comment for CodeSubmission model class...
   $parseDatabaseJson(json: Pojo) {

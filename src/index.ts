@@ -133,6 +133,8 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     log?.info("Gradelog: Done");
   });
 
+  // TODO! Can we get event when org is renamed (to update name of ClassroomOrg record?)
+
   // app.on("fork", async (context) => {
   //   // log?.info(context);
   //   log?.info("fork");
@@ -157,14 +159,14 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     helmet({
       referrerPolicy: { policy: "same-origin" },
       hidePoweredBy: false,
-      // Vite dev server injects script into index, for HMR websockets; ok to allow just in dev
-      ...(proxyViteServer
-        ? {
-            contentSecurityPolicy: {
-              directives: { "script-src": ["'self'", "https:", "'unsafe-inline'"] },
-            },
-          }
-        : {}),
+      crossOriginEmbedderPolicy: { policy: "credentialless" },
+      contentSecurityPolicy: {
+        directives: {
+          "img-src": ["'self'", "data:", "https://avatars.githubusercontent.com"],
+          // Vite dev server injects script into index, for HMR websockets; ok to allow just in dev
+          ...(proxyViteServer && { "script-src": ["'self'", "'unsafe-inline'"] }),
+        },
+      },
     })
   );
 
@@ -191,6 +193,7 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   router.use(
     authMiddleware("/classbot/oauth/login", {
       loadUser: true,
+      userFetchRelations: "orgs.assignments", // XXX Also determines behavior of /api/self/profile endpoint ...hmm
       logger: log?.child({ name: "auth-session" }),
     })
   );

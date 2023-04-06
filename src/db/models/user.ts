@@ -1,4 +1,5 @@
 import { Model } from "objection";
+import { ClassroomOrg } from "./classroom";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -16,11 +17,23 @@ export class User extends Model {
     return "users";
   }
 
-  // constructor(id: number, username: string) {
-  //   super();
-  //   this.id = id;
-  //   this.username = username;
-  // }
+  static get relationMappings() {
+    return {
+      orgs: {
+        relation: Model.ManyToManyRelation,
+        modelClass: ClassroomOrg,
+        join: {
+          from: "users.id",
+          through: {
+            // persons_movies is the join table.
+            from: "memberships.userid",
+            to: "memberships.orgId",
+          },
+          to: "classroom_orgs.id",
+        },
+      },
+    };
+  }
 }
 
 export interface UserSessionData {

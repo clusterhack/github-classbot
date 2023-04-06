@@ -2,10 +2,22 @@ import { Knex } from "knex";
 
 import { stringEnumValues } from "../../util";
 import { UserRole } from "../models/user";
-import { CodeSubmissionScoredBy, CodeSubmissionStatus } from "../models/assignment";
+import { CodeSubmissionScoredBy, CodeSubmissionStatus } from "../models/submission";
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema
+    .createTable("classroom_orgs", table => {
+      table.integer("id").primary(); // Github org id
+      table.string("name", 64).notNullable().unique(); // Github org name
+      table.string("description", 64);
+    })
+    .createTable("assignments", table => {
+      table.increments("id").primary();
+      table.integer("orgId").notNullable().references("classroom_orgs.id");
+      table.string("name", 64).notNullable();
+      table.unique(["orgId", "name"]);
+      table.datetime("due");
+    })
     .createTable("users", table => {
       table.integer("id").primary();
       table.string("username", 32).notNullable().unique();
@@ -13,19 +25,17 @@ export async function up(knex: Knex): Promise<void> {
       table.enu("role", stringEnumValues(UserRole)); // TODO! Get values from UserRole enum !!
       table.string("name", 128);
     })
+    .createTable("memberships", table => {
+      table.integer("userid").notNullable().references("users.id");
+      table.integer("orgId").notNullable().references("clasroom_orgs.id");
+      table.primary(["userid", "orgId"]);
+    })
     .createTable("sessions", table => {
       table.string("id", 255).primary();
       table.json("cookie");
       table.integer("userid").references("users.id");
       table.string("username", 32).references("users.username");
       table.datetime("expires").notNullable();
-    })
-    .createTable("assignments", table => {
-      table.increments("id").primary();
-      table.string("org", 64).notNullable();
-      table.string("name", 64).notNullable();
-      table.unique(["org", "name"]);
-      table.datetime("due");
     })
     .createTable("submissions", table => {
       table.increments("id").primary();
@@ -39,10 +49,10 @@ export async function up(knex: Knex): Promise<void> {
     })
     .createTable("code_submissions", table => {
       table.integer("id").unsigned().primary().references("submissions.id");
-      table.string("repo", 128).notNullable();
+      table.string("repo", 64).notNullable();
       table.string("head_sha", 40).notNullable().unique();
       table.enu("scored_by", stringEnumValues(CodeSubmissionScoredBy));
-      table.integer("check_run_id");
+      table.bigInteger("check_run_id");
       table.enu("status", stringEnumValues(CodeSubmissionStatus));
       table.float("execution_time");
       table.json("autograde");
@@ -53,7 +63,7 @@ export async function up(knex: Knex): Promise<void> {
       table.boolean("cleared").notNullable().defaultTo(false);
       table.integer("userid").references("users.id");
       table.integer("assignment_id").unsigned().references("assignments.id");
-      table.string("repo", 128).notNullable();
+      table.string("repo", 64).notNullable();
       table.integer("issue");
       table.string("sha", 40).notNullable().unique();
       table.json("details");
@@ -63,9 +73,12 @@ export async function up(knex: Knex): Promise<void> {
 export async function down(knex: Knex): Promise<void> {
   // TODO? Check if this order works (or fails due to FK constraints)
   await knex.schema
-    .dropTableIfExists("users")
-    .dropTableIfExists("sessions")
     .dropTableIfExists("code_submissions")
     .dropTableIfExists("submissions")
-    .dropTableIfExists("alerts");
+    .dropTableIfExists("alerts")
+    .dropTableIfExists("sessions")
+    .dropTableIfExists("memberships")
+    .dropTableIfExists("users")
+    .dropTableIfExists("assignments")
+    .dropTableIfExists("classroom_orgs");
 }

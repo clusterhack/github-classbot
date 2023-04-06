@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import { Logger, ProbotOctokit } from "probot";
 
 import { HTTPError } from "./types";
+import { RelationExpression } from "objection";
 import { User, UserRole } from "./db/models/user";
 
 export class AuthError extends HTTPError {
@@ -23,6 +24,7 @@ export interface OAuthRoutesOptions {
 
 export interface AuthMiddlewareOptions {
   loadUser?: boolean; // If true, User db record will be retrieved into req.user
+  userFetchRelations?: RelationExpression<User>; // Relations to load eagerly, when loadUser is set
   logger?: Logger;
 }
 
@@ -180,7 +182,11 @@ export function authMiddleware(login_url: string, options?: AuthMiddlewareOption
         if (userData && userData.userid) {
           log?.info(`Session user ${userData.username} (${userData.userid})`);
           if (options?.loadUser === true) {
-            req.user = await User.query().findById(userData.userid);
+            let query = User.query().findById(userData.userid);
+            if (options?.userFetchRelations !== undefined) {
+              query = query.withGraphFetched(options.userFetchRelations);
+            }
+            req.user = await query;
             if (req.user === undefined) {
               throw new AuthError(`Session cookie without matching userid ${userData.userid}`, 500);
             }
