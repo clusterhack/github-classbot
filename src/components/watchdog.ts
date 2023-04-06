@@ -339,7 +339,7 @@ export default async function (
         repo: repo,
         issue: issueNumber,
         sha: context.payload.after,
-        details: JSON.stringify(issueDetails, undefined, 2),
+        details: issueDetails,
       });
       log.info("Logged alert into database");
     } catch (err) {

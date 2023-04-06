@@ -1,6 +1,5 @@
-import { Model, Pojo } from "objection";
+import { Model } from "objection";
 
-import { pojoParseJSONField } from "../../util";
 import { User } from "./user";
 import { Assignment } from "./classroom";
 
@@ -86,14 +85,13 @@ export class CodeSubmission extends Model {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   autograde?: any; // json
 
-  // TODO? Is there a better way to do this (i.e., let Objection and/or Knex know
-  //   that field should be parsed (since MySQL JSON is just alias for LONGTEXT..)?
-  $parseDatabaseJson(json: Pojo) {
-    return pojoParseJSONField(super.$parseDatabaseJson(json), "autograde");
-  }
-
   static get tableName() {
     return "code_submissions";
+  }
+
+  // TODO? Remove when we get around to adding jsonSchema prop?
+  static get jsonAttributes() {
+    return ["autograde"];
   }
 
   static get relationMappings() {

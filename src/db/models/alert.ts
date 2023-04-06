@@ -1,6 +1,5 @@
-import { Model, Pojo } from "objection";
+import { Model } from "objection";
 
-import { pojoParseJSONField } from "../../util";
 import { User } from "./user";
 import { Assignment } from "./classroom";
 
@@ -20,13 +19,13 @@ export class Alert extends Model {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any; // json
 
-  // TODO? See comment for CodeSubmission model class...
-  $parseDatabaseJson(json: Pojo) {
-    return pojoParseJSONField(super.$parseDatabaseJson(json), "details");
-  }
-
   static get tableName() {
     return "alerts";
+  }
+
+  // TODO? Remove when we get around to adding jsonSchema prop?
+  static get jsonAttributes() {
+    return ["details"];
   }
 
   static get relationMappings() {
