@@ -6,13 +6,16 @@ import {
   Outlet as RouterOutlet,
 } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
 import AppBar from "@mui/material/AppBar";
 import Drawer from "@mui/material/Drawer";
 import Button from "@mui/material/Button";
 import Toolbar from "@mui/material/Toolbar";
+import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
+import Badge from "@mui/material/Badge";
 import { LinkProps } from "@mui/material/Link";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
@@ -20,14 +23,20 @@ import ListItem from "@mui/material/ListItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import ListItemButton from "@mui/material/ListItemButton";
-import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
 
+import MenuIcon from "@mui/icons-material/Menu";
 import ScoreboardIcon from "@mui/icons-material/Scoreboard";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SchoolIcon from "@mui/icons-material/School";
 import HomeIcon from "@mui/icons-material/Home";
+import SecurityIcon from "@mui/icons-material/Security";
 
-const drawerWidth = 220; // TODO? Make <Root> param ?
+import classbotLogo from "../assets/classbot.png";
+
+// Note: Based mostly on MUI docs examples (primarily for Drawer, Popover, and router usage),
+//   with some tweaks based on https://codesandbox.io/s/material-ui-responsive-drawer-skqdw
+// TODO? When/if time, check performance of useMediaQuery (tweak above) vs duplicating Drawer component (as in MUI doc examples)
 
 const LinkBehavior = React.forwardRef<
   HTMLAnchorElement,
@@ -59,42 +68,102 @@ export async function loader() {
   return { user: await res.json() };
 }
 
-function Root() {
+function Root(drawerWidth = 220) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { user } = useLoaderData() as any; // TODO db model interfaces...
+
+  //const theme = useTheme();
+  const isMediaSmall = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const userButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const [userCardOpen, setUserCardOpen] = React.useState(false);
+
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
+  const handleUserCardToggle = () => {
+    setUserCardOpen(!userCardOpen);
+  };
+
+  // TODO? Shorten user.name to 1-2 letters (for main Avatar cdata child)
+  const userAvatar =
+    user.role === "admin" ? (
+      <Badge
+        overlap="circular"
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        badgeContent={
+          <Avatar
+            alt="Administrator"
+            sx={{
+              width: 22,
+              height: 22,
+              bgcolor: "warning.main",
+              border: 1,
+              borderColor: "background.paper",
+            }}
+          >
+            <SecurityIcon sx={{ fontSize: 16 }} />
+          </Avatar>
+        }
+      >
+        <Avatar src={`https://avatars.githubusercontent.com/u/${user.id}`}>${user.name}</Avatar>
+      </Badge>
+    ) : (
+      <Avatar src={`https://avatars.githubusercontent.com/u/${user.id}`}>${user.name}</Avatar>
+    );
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ display: "flex" }}>
         <AppBar position="fixed" sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}>
           <Toolbar>
-            {/* <IconButton
+            <IconButton
               size="large"
               edge="start"
               color="inherit"
-              aria-label="menu"
-              sx={{ mr: 2 }}
+              aria-label="navigation menu"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 1, display: { sm: "none" } }}
             >
               <MenuIcon />
-            </IconButton> */}
+            </IconButton>
+            <Avatar
+              src={classbotLogo}
+              sx={{ p: 0.5, mr: 2, bgcolor: "grey.200", display: { xs: "none", sm: "inherit" } }}
+            ></Avatar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               ClassBot
             </Typography>
-            <Tooltip
-              title={
-                <React.Fragment>
-                  <Typography color="inherit" variant="subtitle1">User Profile</Typography>
-                  {user?.name}<br />{user?.username} / {user?.sisId}
-                </React.Fragment>
-              }
+            <Button ref={userButtonRef} aria-describedby="user-card" onClick={handleUserCardToggle}>
+              {userAvatar}
+              {/* TODO? Badge for admins */}
+            </Button>
+            <Popover
+              id="user-card"
+              aria-label="user information"
+              open={userCardOpen}
+              onClose={handleUserCardToggle}
+              anchorEl={userButtonRef.current}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+              PaperProps={{ sx: { p: 1, pl: 2, pr: 2 } }}
             >
-              <Button>
-                <Avatar src={`https://avatars.githubusercontent.com/u/${user.id}`}>SP</Avatar>
-              </Button>
-            </Tooltip>
+              <Typography color="inherit" variant="h6" gutterBottom>
+                {user?.name}
+              </Typography>
+              <Typography color="text.secondary">
+                {user?.username} / {user?.sisId}
+              </Typography>
+            </Popover>
           </Toolbar>
         </AppBar>
         <Drawer
-          variant="permanent"
+          variant={isMediaSmall ? "temporary" : "permanent"}
+          anchor="left"
+          open={drawerOpen}
+          onClose={handleDrawerToggle}
           sx={{
             width: drawerWidth,
             flexShrink: 0,
@@ -131,7 +200,9 @@ function Root() {
           {user?.role === "admin" && (
             <>
               <Divider />
-              <Typography variant="overline" sx={{ pl: 2 }}>Admin</Typography>
+              <Typography variant="overline" sx={{ pl: 2, mt: 0.5 }}>
+                Admin
+              </Typography>
               <List>
                 <ListItem key="AdminSubmissions" disablePadding>
                   <ListItemButton href="/admin/submissions">
