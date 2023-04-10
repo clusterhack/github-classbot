@@ -45,6 +45,7 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
       return;
     }
 
+    // TODO? Should defer to "trust proxy" express setting
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.headers["x-forwarded-host"] || req.get("host");
 
