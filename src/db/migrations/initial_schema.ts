@@ -28,6 +28,7 @@ export async function up(knex: Knex): Promise<void> {
     .createTable("memberships", table => {
       table.integer("userid").notNullable().references("users.id");
       table.integer("orgId").notNullable().references("classroom_orgs.id");
+
       table.primary(["userid", "orgId"]);
     })
     .createTable("sessions", table => {
@@ -44,6 +45,8 @@ export async function up(knex: Knex): Promise<void> {
       table.integer("assignment_id").unsigned().notNullable().references("assignments.id");
       table.integer("score");
       table.integer("max_score");
+
+      table.index("timestamp");
       // table.check("?? >= 0", ["score"], "score_non_negative");
       // table.check("?? >= 0", ["max_score"], "max_score_non_negative");
     })
@@ -67,6 +70,8 @@ export async function up(knex: Knex): Promise<void> {
       table.integer("issue");
       table.string("sha", 40).notNullable().unique();
       table.json("details");
+
+      table.index("timestamp");
     });
 }
 
