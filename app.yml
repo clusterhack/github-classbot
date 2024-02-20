@@ -40,7 +40,7 @@ default_events:
 # - pull_request_review_comment
   - push
 # - release
-# - repository
+  - repository
 # - repository_import
 # - status
 # - team
@@ -90,6 +90,9 @@ default_permissions:
   # Pull requests and related comments, assignees, labels, milestones, and merges.
   # https://docs.github.com/en/rest/overview/permissions-required-for-github-apps#pull-requests
   pull_requests: read
+
+  # https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-workflows
+  workflows: write
 
   # Manage the post-receive hooks for a repository.
   # https://developer.github.com/v3/apps/permissions/#permission-on-repository-hooks

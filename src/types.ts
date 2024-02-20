@@ -2,6 +2,7 @@ import { AutogradeConfig } from "./components/autograde";
 import { BadgesConfig } from "./components/badges";
 import { GradeLogConfig } from "./components/gradelog";
 import { WatchdogConfig } from "./components/watchdog";
+import { WorkflowsConfig } from "./components/workflows";
 
 export class ClassbotError extends Error {}
 
@@ -52,6 +53,7 @@ export interface ClassbotConfig {
   autograde?: AutogradeConfig;
   badges?: BadgesConfig;
   gradelog?: GradeLogConfig;
+  workflows?: WorkflowsConfig;
 }
 
 export function normalizeFileManifest(manifest: FileManifest, branch?: string): readonly string[] {

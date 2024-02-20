@@ -28,6 +28,12 @@ const defaultConfig: ClassbotConfig = {
     branch: "status",
     path: "badges",
   },
+  workflows: {
+    source_path: ".github/classroom/autograde-action.yml",
+    destination_path: ".github/workflows/classroom.yml",
+    pusher_filter: "^github-classroom\\[bot\\]$",
+    message_filter: "^(Setting up GitHub Classroom|add deadline$)",
+  },
 };
 
 export default defaultConfig;

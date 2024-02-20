@@ -1,3 +1,4 @@
+import path from "node:path";
 // eslint-disable-next-line node/no-extraneous-import
 import deepmerge from "deepmerge";
 import { Context } from "probot";
@@ -20,6 +21,7 @@ function configOverrideApply(
   if (config.autograde === undefined) delete result.autograde;
   if (config.gradelog === undefined) delete result.gradelog;
   if (config.badges === undefined) delete result.badges;
+  if (config.workflows === undefined) delete result.workflows;
   return result;
 }
 
@@ -51,6 +53,11 @@ export async function getConfig(context: Context): Promise<ClassbotConfig> {
     }
     if (!config.watchdog.issue.template) {
       throw new ClassbotConfigError("Missing (or blank) watchdog issue template");
+    }
+  }
+  if (config.badges !== undefined) {
+    if (config.badges.path.includes(path.sep)) {
+      throw new ClassbotConfigError("Badge path cannot be nested");
     }
   }
   //console.log(`Actual config:\n${JSON.stringify(config, null, 2)}`);

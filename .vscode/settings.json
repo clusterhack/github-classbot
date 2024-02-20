@@ -8,5 +8,6 @@
   "jest.autoRun": {
     "watch": false
   },
-  "remote.autoForwardPorts": false
+  "remote.autoForwardPorts": false,
+  "typescript.tsdk": "node_modules/typescript/lib"
 }

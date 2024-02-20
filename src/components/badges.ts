@@ -1,5 +1,6 @@
 import path from "node:path";
 import { Probot, Context } from "probot";
+import { RequestError as OctokitError } from "@octokit/request-error";
 import { CheckRunCompletedEvent } from "@octokit/webhooks-types";
 
 import { isComponentEnabled } from "../config";
@@ -54,6 +55,110 @@ export function createPointsBadge(
   </g>
 </svg>`); // eslint-disable-line prettier/prettier
 }
+/***********************************************************************
+ * Status branch initialization (for score badges)
+ */
+
+export async function statusBranchSetup(
+  app: Probot,
+  context: Context<"repository.created">,
+  config: ClassbotConfig,
+  botUser: { name: string; email: string },
+  repoInfo?: { owner: string; repo: string }
+): Promise<void> {
+  if (!isComponentEnabled(config.badges)) {
+    return;
+  }
+
+  const { owner, repo } = repoInfo || context.repo();
+  const log = app.log.child({ name: "status-setup", repo: `${owner}/${repo}` });
+
+  // TODO? Check if we should skip...
+
+  const branch = config.badges.branch; // Shorthand
+  const branchRef = `refs/heads/${branch}`;
+
+  // Check if branch already exists
+  const matchingRefs = (
+    await context.octokit.git.listMatchingRefs({
+      owner,
+      repo,
+      ref: branchRef,
+    })
+  ).data;
+  if (matchingRefs.length !== 0 && matchingRefs[0].ref === branchRef) {
+    log.error(`Branch ${branch} already exists; aborting...`);
+    return;
+  }
+
+  // Default badge SVG
+  const badge = createPointsBadge("??", "??");
+
+  try {
+    // Create badges sub-tree
+    const badgesTreeSha = (
+      await context.octokit.git.createTree({
+        owner,
+        repo,
+        tree: [
+          {
+            path: "score.svg",
+            mode: "100644",
+            type: "blob",
+            content: badge,
+          },
+        ],
+      })
+    ).data.sha;
+
+    // Create root tree
+    // Config validation ensures that badges.path is not nested, so this should be fine
+    const rootTreeSha = (
+      await context.octokit.git.createTree({
+        owner,
+        repo,
+        tree: [
+          {
+            path: config.badges.path,
+            mode: "040000",
+            type: "tree",
+            sha: badgesTreeSha,
+          },
+        ],
+      })
+    ).data.sha;
+
+    // Create commit with new root tree
+    const commitSha = (
+      await context.octokit.git.createCommit({
+        owner,
+        repo,
+        message: `Setting up "${branch}" orphan branch`,
+        tree: rootTreeSha,
+        author: botUser,
+      })
+    ).data.sha;
+
+    // Create branch reference to new commit
+    const refResp = await context.octokit.git.createRef({
+      owner,
+      repo,
+      ref: branchRef,
+      sha: commitSha,
+    });
+
+    log.info(`Set up "${branch}" branch (HTTP ${refResp.headers.status}) to commit ${commitSha}`);
+  } catch (err) {
+    const error = err as OctokitError; // TODO? CHECK exception type (there is a different RequestError in @octokit/types..)
+    log.error(
+      `Error creating "${branch}" branch on request ${error.request?.url}: ${error.message}`
+    );
+  }
+}
+
+/***********************************************************************
+ * Score badge update
+ */
 
 type Score = { score: string | number; max_score: string | number };
 function parseAutogradingScore(scoreSummary: string): Score;
@@ -120,11 +225,13 @@ export default async function (
       path: badgeFile,
       ref: config.badges.branch,
     })
-  ).data as { sha?: string; message?: string };
+  ).data as
+    | { sha: string; encoding?: string; content?: string }
+    | { sha: undefined; message?: string };
   const sha = oldContents.sha;
 
   if (sha === undefined) {
-    log.error(`ERROR: Could not find SHA of ${badgeFile}: ${oldContents.message}`);
+    log.error(`Could not find SHA of ${badgeFile}: ${oldContents.message}`);
     return;
   }
 

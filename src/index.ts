@@ -17,8 +17,9 @@ import { authMiddleware, oauthRoutes } from "./auth";
 import { apiRoutes } from "./api";
 import watchdog from "./components/watchdog";
 import autograde from "./components/autograde";
-import badges from "./components/badges";
+import badges, { statusBranchSetup } from "./components/badges";
 import gradelog from "./components/gradelog";
+import { classroomWorkflowSetup } from "./components/workflows";
 
 // Global config constants
 // TODO Fix default fallbacks (or, alternatively, fail on undefined)
@@ -31,7 +32,7 @@ const CLASSBOT_REPO_NAME_PATTERN = new RegExp(process.env.CLASSBOT_REPO_NAME_PAT
 
 // @ts-ignore(6133)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function classbotGitUserConfig(context: Context<"push" | "check_run">) {
+function classbotGitUserConfig(context: Context<"push" | "check_run" | "repository.created">) {
   // const id = context.payload.installation?.id || process.env.APP_ID;
   const id = CLASSBOT_USERID;
   return {
@@ -93,7 +94,9 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     log?.info(`Watchdog: owner/repo = ${owner}/${repo}`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
+    const botUser = classbotGitUserConfig(context);
 
+    await classroomWorkflowSetup(app, context, config, botUser, { owner, repo });
     await watchdog(app, context, config, { owner, repo });
     log?.info("Watchdog: Done");
   });
@@ -135,10 +138,23 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
 
   // TODO! Can we get event when org is renamed (to update name of ClassroomOrg record?)
 
-  // app.on("fork", async (context) => {
-  //   // log?.info(context);
-  //   log?.info("fork");
-  // });
+  app.on("fork", async context => {
+    const repoName = context.payload.repository.full_name;
+    const forkeeName = context.payload.forkee.full_name;
+    log?.info(`Fork: repo = ${repoName}, forkee = ${forkeeName}`);
+    // Info only, setup tasks handled in "repository.created" and "push" ...
+  });
+
+  app.on("repository.created", async context => {
+    log?.info("Setup: Start (on repository.created)");
+    const { owner, repo } = context.repo();
+    log?.info(`Setup: owner/repo = ${owner}/${repo}`);
+    if (classbotSkipRepo(owner, repo)) return;
+    const config = await getConfig(context);
+
+    await statusBranchSetup(app, context, config, classbotGitUserConfig(context), { owner, repo });
+    log?.info("Setup: Done");
+  });
 
   // app.on("pull_request.opened", async (context) => {
   //   // log?.info(context);
