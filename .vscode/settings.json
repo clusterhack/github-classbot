@@ -9,5 +9,14 @@
     "watch": false
   },
   "remote.autoForwardPorts": false,
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  // From https://code.visualstudio.com/docs/setup/linux#_visual-studio-code-is-unable-to-watch-for-file-changes-in-this-large-workspace-error-enospc
+  // with some project-specific build output additions
+  "files.watcherExclude": {
+    // "**/.git/objects/**": true,
+    // "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true,
+    "/lib/**": true,
+    "/lib-ui/**": true
+  }
 }
