@@ -1,4 +1,3 @@
-// eslint-disable-next-line node/no-extraneous-require
 require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH });
 
 import path from "node:path";

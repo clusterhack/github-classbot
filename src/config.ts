@@ -1,5 +1,4 @@
 import path from "node:path";
-// eslint-disable-next-line node/no-extraneous-import
 import deepmerge from "deepmerge";
 import { Context } from "probot";
 import { ClassbotConfig, ClassbotComponentConfig, ClassbotConfigError } from "./types";
