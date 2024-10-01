@@ -160,6 +160,10 @@ export async function statusBranchSetup(
  * Score badge update
  */
 
+function _replaceMissing(val: number | undefined, missingText: string): number | string {
+  return val === undefined || isNaN(val) ? missingText : val;
+}
+
 type Score = { score: string | number; max_score: string | number };
 function parseAutogradingScore(scoreSummary: string): Score;
 function parseAutogradingScore(event: CheckRunCompletedEvent): Score;
@@ -183,8 +187,8 @@ function parseAutogradingScore(eventOrSummary: string | CheckRunCompletedEvent):
   // Expected format: "Points 100/100"
   console.log(`Parse score from: ${eventOrSummary}`);
   const grp = eventOrSummary.match(/^Points\s+(?<score>\d+)\s*\/\s*(?<max_score>\d+)/)?.groups;
-  result.score = (grp && parseInt(grp.score)) || "??";
-  result.max_score = (grp && parseInt(grp.max_score)) || "??";
+  result.score = _replaceMissing(grp && parseInt(grp.score), "??");
+  result.max_score = _replaceMissing(grp && parseInt(grp.max_score), "??");
 
   return result;
 }
