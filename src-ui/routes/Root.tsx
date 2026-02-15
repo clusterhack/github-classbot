@@ -148,7 +148,7 @@ function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
               anchorEl={userButtonRef.current}
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
-              PaperProps={{ sx: { p: 1, pl: 2, pr: 2 } }}
+              slotProps={{ paper: { sx: { p: 1, pl: 2, pr: 2 } } }}
             >
               <Typography color="inherit" variant="h6" gutterBottom>
                 {user?.name}
