@@ -131,7 +131,7 @@ export default async function (
     return;
   }
   const zip = JSZip();
-  await zip.loadAsync(await fetchResp.buffer()); // TODO!! Byte size limit!
+  await zip.loadAsync(await fetchResp.arrayBuffer()); // TODO!! Byte size limit!
   const filenames = Object.keys(zip.files).filter(fn => fn.endsWith(".json"));
   if (filenames.length === 0) {
     log.error("No JSON files in artifact; giving up!");

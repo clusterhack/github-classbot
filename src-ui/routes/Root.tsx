@@ -68,7 +68,7 @@ export async function loader() {
   return { user: await res.json() };
 }
 
-function Root(drawerWidth = 220) {
+function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { user } = useLoaderData() as any; // TODO db model interfaces...
 
