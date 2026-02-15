@@ -194,7 +194,7 @@ export function authMiddleware(login_url: string, options?: AuthMiddlewareOption
           }
           next();
         } else {
-          const url = `${req.baseUrl}/${req.url}`;
+          const url = `${req.baseUrl}${req.url}`;  // Express req.url always starts with a slash
           log?.info(`No session cookie, redirecting from ${url} to ${login_url}`);
           res.redirect(`${login_url}?${querystring.stringify({ path: url })}`);
         }
