@@ -1,4 +1,11 @@
+# Ignore tests (for now)
+test
+jest.config.js
+
+# Project-specific
 attic
+
+# General (incl. build artifacts)
 node_modules
 npm-debug.log
 *.pem
