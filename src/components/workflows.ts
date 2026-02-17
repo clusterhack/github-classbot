@@ -69,7 +69,7 @@ export async function classroomWorkflowSetup(
     // Since this is a one-time setup, doesn't make sense to do diff vs srcPath ...
     log.info(`Workflow ${dstPath} already exists; skipping setup`);
     return;
-  } catch (err) {
+  } catch (_err) {
     log.info(`Workflow ${dstPath} does not already exist`);
   }
 

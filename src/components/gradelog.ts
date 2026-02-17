@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import JSZip from "jszip";
 import { Probot, Context } from "probot";
 // import { ref } from "objection";

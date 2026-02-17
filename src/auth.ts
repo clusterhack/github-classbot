@@ -1,6 +1,5 @@
 import querystring from "node:querystring";
 import express from "express";
-import fetch from "node-fetch";
 
 import { Logger, ProbotOctokit } from "probot";
 

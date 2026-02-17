@@ -143,8 +143,8 @@ function getRecordsHandler(modelClass: typeof Model, opts: RecordsHandlerOptions
   return asyncHandleExceptions(async (req, res) => {
     const where: GetRecordsQuery = {
       userid: opts.getUserId && opts.getUserId(req, res),
-      orgName: req.params.orgname,
-      assignmentName: req.params.assname,
+      orgName: req.params.orgname as string,
+      assignmentName: req.params.assname as string,
     };
     const data = await getRecords(
       modelClass,
@@ -177,7 +177,7 @@ export function apiRoutes(options?: APIRouteOptions) {
   // Middleware to validate :userid parameter and fetch corresponding user record from database
   // TODO Seems express has API for param validation/parsing? RTFM when time, and use that instead..?
   const validateUserIdParam = asyncHandleExceptions(async (req, res, next) => {
-    const userid = parseInt(req.params.userid);
+    const userid = parseInt(req.params.userid as string);
     if (isNaN(userid)) {
       throw new APIError("Invalid userid URL path parameter: ${req.params.userid}");
     }
@@ -354,7 +354,7 @@ export function apiRoutes(options?: APIRouteOptions) {
     asyncHandleExceptions(async (req, res) => {
       log?.info(`Get assignments url: ${req.url} baseUrl: ${req.baseUrl}`);
       log?.info(`Get assignments req.params: ${JSON.stringify(req.params, undefined, 2)}`);
-      const _query = Assignment.query().where("org", req.params.orgname);
+      const _query = Assignment.query().where("org", req.params.orgname as string);
       log?.info(`Get assignments query: ${_query}`);
       const data = await _query;
       res.json(data);

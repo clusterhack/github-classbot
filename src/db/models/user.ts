@@ -43,7 +43,7 @@ export interface UserSessionData {
 }
 
 // Based on https://stackoverflow.com/a/65787814
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface UserSession extends UserSessionData {}
 
 export class UserSession extends Model implements UserSession {
