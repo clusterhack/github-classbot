@@ -137,7 +137,7 @@ type RecordsHandlerOptions = {
 //   Random thoughts/notes: instead of null, use a special ANY_USER const or similar?
 function getRecordsHandler(modelClass: typeof Model, opts: RecordsHandlerOptions) {
   // Default option values (if unspecified)
-  const fetchRelExpr = opts.fetchRelExpr || { assingment: true };
+  const fetchRelExpr = opts.fetchRelExpr || { assignment: true };
   const sortColumn = opts.sortColumn || "id";
 
   return asyncHandleExceptions(async (req, res) => {
@@ -235,6 +235,16 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   // ***********************************************************************
 
+  apiRouter.get(
+    "/users",
+    requireAdmin,
+    asyncHandleExceptions(async (_req, res) => {
+      // TODO Handle pagination
+      const data = await User.query();
+      res.json(data);
+    })
+  );
+
   apiRouter.post(
     "/user/create",
     requireAdmin,
@@ -318,6 +328,15 @@ export function apiRoutes(options?: APIRouteOptions) {
   adminUserRouter.get("/org/:orgname/assignment/:assname/alerts", adminUserAlertsHandlers);
 
   // ***********************************************************************
+
+  apiRouter.get(
+    "/orgs",
+    requireAdmin,
+    asyncHandleExceptions(async (_req, res) => {
+      const data = await ClassroomOrg.query();
+      res.json(data);
+    })
+  );
 
   apiRouter.post(
     "/org/create",
