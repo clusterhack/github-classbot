@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Root, { loader as rootLoader } from "./routes/Root";
 import Hello from "./routes/Hello";
 import Profile from "./routes/Profile";
+import UsersList from "./routes/UsersList";
 import CssBaseline from "@mui/material/CssBaseline";
 
 const router = createBrowserRouter(
@@ -25,6 +26,10 @@ const router = createBrowserRouter(
         {
           path: "/self/alerts",
           element: <Profile />, // TODO!
+        },
+        {
+          path: "/admin/users",
+          element: <UsersList />,
         },
         {
           path: "/admin/submissions",

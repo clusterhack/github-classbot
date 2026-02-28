@@ -28,6 +28,7 @@ import Popover from "@mui/material/Popover";
 import MenuIcon from "@mui/icons-material/Menu";
 import ScoreboardIcon from "@mui/icons-material/Scoreboard";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import PersonIcon from '@mui/icons-material/Person';
 import SchoolIcon from "@mui/icons-material/School";
 import HomeIcon from "@mui/icons-material/Home";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -204,6 +205,14 @@ function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
                 Admin
               </Typography>
               <List>
+                <ListItem key="AdminUsers" disablePadding>
+                  <ListItemButton href="/admin/users">
+                    <ListItemIcon>
+                      <PersonIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Users" />
+                  </ListItemButton>
+                </ListItem>
                 <ListItem key="AdminSubmissions" disablePadding>
                   <ListItemButton href="/admin/submissions">
                     <ListItemIcon>
