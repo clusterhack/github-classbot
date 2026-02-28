@@ -32,6 +32,7 @@
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
     "@octokit/request-error": "^7.1.0",
+    "@tanstack/react-router": "^1.163.3",
     "body-parser": "^2.2.2",
     "deepmerge": "^4.3.1",
     "dockerode": "^4.0.9",
@@ -49,8 +50,7 @@
     "probot": "^13.4.7",
     "qs": "^6.15.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.1",

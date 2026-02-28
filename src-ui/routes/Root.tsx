@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  useLoaderData,
-  Link as RouterLink,
-  LinkProps as RouterLinkProps,
-  Outlet as RouterOutlet,
-} from "react-router-dom";
+import { createRootRoute, Link as RouterLink, Outlet } from "@tanstack/react-router";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
@@ -41,10 +36,10 @@ import classbotLogo from "../assets/classbot.png";
 
 const LinkBehavior = React.forwardRef<
   HTMLAnchorElement,
-  Omit<RouterLinkProps, "to"> & { href: RouterLinkProps["to"] }
+  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & { href: string }
 >((props, ref) => {
   const { href, ...other } = props;
-  // Map href (MUI) -> to (react-router)
+  // Map href (MUI) -> to (TanStack Router)
   return <RouterLink data-testid="custom-link" ref={ref} to={href} {...other} />;
 });
 LinkBehavior.displayName = "LinkBehavior";
@@ -64,14 +59,8 @@ const theme = createTheme({
   },
 });
 
-export async function loader() {
-  const res = await fetch("/classbot/api/self/profile");
-  return { user: await res.json() };
-}
-
 function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { user } = useLoaderData() as any; // TODO db model interfaces...
+  const { user } = Route.useLoaderData();
 
   //const theme = useTheme();
   const isMediaSmall = useMediaQuery(theme.breakpoints.down("sm"));
@@ -227,11 +216,19 @@ function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
         </Drawer>
         <Box sx={{ flexGrow: 1, p: 2 }}>
           <Toolbar />
-          <RouterOutlet />
+          <Outlet />
         </Box>
       </Box>
     </ThemeProvider>
   );
 }
+
+export const Route = createRootRoute({
+  component: Root,
+  loader: async () => {
+    const res = await fetch("/classbot/api/self/profile");
+    return { user: await res.json() };
+  },
+});
 
 export default Root;

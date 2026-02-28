@@ -1,47 +1,57 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createRoute, createRouter, RouterProvider } from "@tanstack/react-router";
+import CssBaseline from "@mui/material/CssBaseline";
 
-import Root, { loader as rootLoader } from "./routes/Root";
+import { Route as rootRoute } from "./routes/Root";
 import Hello from "./routes/Hello";
 import Profile from "./routes/Profile";
 import UsersList from "./routes/UsersList";
-import CssBaseline from "@mui/material/CssBaseline";
 
-const router = createBrowserRouter(
-  [
-    {
-      path: "/",
-      element: <Root />,
-      loader: rootLoader,
-      children: [
-        {
-          path: "",
-          element: <Hello />,
-        },
-        {
-          path: "/self/submissions",
-          element: <Profile />, // TODO!
-        },
-        {
-          path: "/self/alerts",
-          element: <Profile />, // TODO!
-        },
-        {
-          path: "/admin/users",
-          element: <UsersList />,
-        },
-        {
-          path: "/admin/submissions",
-          element: <Profile />, // TODO!
-        },
-      ],
-    },
-  ],
-  {
-    basename: import.meta.env.BASE_URL,
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: Hello,
+});
+const submissionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/self/submissions",
+  component: Profile, // TODO
+});
+const alertsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/self/alerts",
+  component: Profile, // TODO
+});
+const adminUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/users",
+  component: UsersList,
+});
+const adminSubmissionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/submissions",
+  component: Profile, // TODO
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  submissionsRoute,
+  alertsRoute,
+  adminUsersRoute,
+  adminSubmissionsRoute,
+]);
+
+const router = createRouter({
+  routeTree,
+  basepath: import.meta.env.BASE_URL, // .replace(/\/$/, ""),
+});
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
   }
-);
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
