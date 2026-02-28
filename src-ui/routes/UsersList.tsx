@@ -10,13 +10,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
-interface User {
-  id: number;
-  username: string;
-  name?: string;
-  sisId?: string;
-  role?: string;
-}
+import { User } from "../models";
 
 function UsersList() {
   const [users, setUsers] = React.useState<User[]>([]);
