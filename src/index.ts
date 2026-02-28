@@ -224,6 +224,10 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     // Serve static assets from build dir
     log?.info("Frontend: directly serving bundled static assets");
     router.use("/ui", express.static(path.join(__dirname, "../lib-ui")));
+    // Fallback route, to make GET requests directly into react-router routes work correctly..
+    router.get("/ui/*splat", (_req, res) => {
+      res.sendFile(path.join(__dirname, "../lib-ui/index.html"));
+    });
   } else {
     // Proxy to dev server (easier this way around, with all the webhook HTTPS stuff etc)
     log?.info("Frontend: proxying to Vite dev server");
