@@ -66,6 +66,7 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
   router.get("/cb", (req, res, next) =>
     Promise.resolve()
       .then(async () => {
+        const now = Date.now();
         log?.info(`OAuth cb: baseUrl = ${req.baseUrl}`);
         // Deal with errors first
         if (req.query.error) {
@@ -152,6 +153,13 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
         req.session.data = { userid, username };
         log?.info(`Set session.data to:\n${JSON.stringify(req.session.data, undefined, 2)}`);
 
+        // Make session cookie expire at the same time as the OAuth access token
+        const expires_in = tokenData.get("expires_in");
+        if (expires_in) {
+          req.session.cookie.expires = new Date(now + parseInt(expires_in) * 1000);
+          log?.info(`Set session.cookie.expires to ${req.session.cookie.expires}`);
+        }
+
         // Redirect after login
         const stateParam = typeof req.query.state === "string" ? req.query.state : undefined;
         res.redirect(stateParam || options?.redirect || "/");
@@ -193,7 +201,7 @@ export function authMiddleware(login_url: string, options?: AuthMiddlewareOption
           }
           next();
         } else {
-          const url = `${req.baseUrl}${req.url}`;  // Express req.url always starts with a slash
+          const url = `${req.baseUrl}${req.url}`; // Express req.url always starts with a slash
           log?.info(`No session cookie, redirecting from ${url} to ${login_url}`);
           res.redirect(`${login_url}?${querystring.stringify({ path: url })}`);
         }
