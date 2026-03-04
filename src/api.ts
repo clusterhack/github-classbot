@@ -3,7 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 
 import { Logger } from "probot";
-import { Model } from "objection";
+import { Model, QueryBuilder } from "objection";
 import LinkHeader from "http-link-header";
 
 import { HTTPError } from "./types";
@@ -27,17 +27,23 @@ declare global {
     interface Locals {
       user?: User;
       org?: ClassroomOrg;
-      pagination?: PaginationParams;
+      pagination?: PaginationState;
     }
   }
 }
 
-interface PaginationParams {
+interface PaginationState {
   offset: number;
   per_page: number;
-  link_header: LinkHeader;
+  finalize: () => void; // XXX FIXME Ugly hack; see below (paginationMiddleware)
+
+  bareResponse?: boolean; // If set to true, return bare data array as JSON response
+  responseData?: Model[]; // *Must* fetch at least one more than per_page, so rel=next link header can be determined!
+  totalCount?: number; // If defined, will determine rel=last link header (else that link will be absent)
 }
 
+// !! When paginationMiddleware is used, route handlers should not send any response headers or body;
+//    instead, response body data *must* be saved in res.locals.pagination.response_data
 function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
   const handler: express.RequestHandler = (req, res, next) => {
     const per_page = Math.min(
@@ -46,7 +52,7 @@ function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
     );
     const offset = parseInt(req.query.offset as string) || 0;
 
-    // Remove offset and per_page params that may be present
+    // Remove offset and per_page params that may be present, keeping all else in query_rest
     const { offset: _offset, per_page: _per_page, ...query_rest } = req.query;
     const link_header = new LinkHeader();
     const link_url = `${req.protocol}://${req.hostname}${req.baseUrl}${req.path}`; // without query params
@@ -55,10 +61,6 @@ function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
       ...(per_page !== default_per_page && { per_page: per_page }),
     };
     link_header.set({ rel: "first", uri: `${link_url}?${qs.stringify(link_query)}` });
-    link_header.set({
-      rel: "next",
-      uri: `${link_url}?${qs.stringify({ ...link_query, offset: offset + per_page })}`,
-    });
     // XXX? Do we *really* need rel=prev link ...
     if (offset !== 0) {
       const prev_offset = offset - per_page;
@@ -71,11 +73,59 @@ function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
       link_header.set({ rel: "prev", uri: `${link_url}?${qs.stringify(prev_query)}` });
     }
 
-    res.locals.pagination = { per_page, offset, link_header };
-    res.header("Link", link_header.toString());
+    // XXX FIXME - This is a terrible hack, but there is no clean way to do stuff after next()
+    //   Once we upgrade Probot and migrate to Koa (or, possibly, Fastify?)
+    //   this finalizer callback will be removed, but for now
+    //   *all* routes that use pagination middleware *must* end with a call to the finalizer.. ugh!
+    const finalize = () => {
+      const pagination = res.locals.pagination!;
+      if (pagination.responseData === undefined) {
+        throw new APIError("No data found!");
+      }
+      // If not the last page, set rel=next header and trim response data to correct length
+      if (pagination.responseData.length >= per_page + 1) {
+        link_header.set({
+          rel: "next",
+          uri: `${link_url}?${qs.stringify({ ...link_query, offset: offset + per_page })}`,
+        });
+        pagination.responseData.splice(per_page);
+      }
+      // If total_count is defined, set rel=last header
+      if (pagination.totalCount !== undefined) {
+        link_header.set({
+          rel: "last",
+          uri: `${link_url}?${qs.stringify({ ...link_query, offset: Math.floor(pagination.totalCount / per_page) })}`,
+        });
+      }
+
+      // Now send actual HTTP response
+      res.header("Link", link_header.toString());
+      res.json(
+        pagination.bareResponse
+          ? pagination.responseData
+          : {
+              per_page: per_page,
+              offset: offset,
+              data: pagination.responseData,
+            }
+      );
+    };
+
+    res.locals.pagination = { per_page, offset, finalize };
     next();
   };
   return handler;
+}
+
+function paginatedQuery(
+  query: QueryBuilder<Model, Model[]>,
+  pagination?: Readonly<PaginationState>
+) {
+  if (pagination) {
+    // Fetch one more, so we can determine whether there is a next page
+    query = query.offset(pagination.offset).limit(pagination.per_page + 1);
+  }
+  return query;
 }
 
 type GetRecordsQuery = {
@@ -92,7 +142,7 @@ async function getRecords(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fetchRelExpr: any = { assignment: true },
   sortColumn = "id",
-  pagination?: Readonly<Omit<PaginationParams, "link_header">>
+  pagination?: Readonly<PaginationState>
 ) {
   if (where === undefined) {
     // Yes, paranoia, but better safe...
@@ -115,10 +165,9 @@ async function getRecords(
     if (where.orgName) query = query.where("assignment:org:name", where.orgName);
     if (where.assignmentName) query = query.where("assignment:name", where.assignmentName);
   }
-  if (pagination) query = query.offset(pagination.offset).limit(pagination.per_page);
-  const rows = await query
-    .orderBy(sortColumn, "desc")
-    .withGraphJoined(fetchRelExpr, { joinOperation: "leftJoin" });
+  query = query.orderBy(sortColumn, "desc");
+  query = paginatedQuery(query, pagination);
+  const rows = await query.withGraphJoined(fetchRelExpr, { joinOperation: "leftJoin" });
   // TODO? Flatten .code and/or .assignment sub-objs?
   return rows;
 }
@@ -146,22 +195,17 @@ function getRecordsHandler(modelClass: typeof Model, opts: RecordsHandlerOptions
       orgName: req.params.orgname as string,
       assignmentName: req.params.assname as string,
     };
-    const data = await getRecords(
+    const records = await getRecords(
       modelClass,
       where,
       fetchRelExpr,
       sortColumn,
       res.locals.pagination
     );
-    if (res.locals.pagination && !opts.bareResponse) {
-      res.json({
-        per_page: res.locals.pagination.per_page,
-        offset: res.locals.pagination.offset,
-        data: data,
-      });
-    } else {
-      res.json(data);
-    }
+    const pagination = res.locals.pagination!;
+    pagination.bareResponse = opts.bareResponse;
+    pagination.responseData = records;
+    pagination.finalize(); // XXX FIXME Hack (see paginationMiddleware)
   });
 }
 
@@ -169,6 +213,7 @@ export function apiRoutes(options?: APIRouteOptions) {
   const log = options?.logger;
 
   // TODO Refactor duplication below (any recordhandler is always together with the pagination handler..)
+  //   However, pagination is also used by routes that do not involve recordhandlers...
   const paginationQueryHandler = paginationMiddleware();
 
   const requireUser = requireRole(UserRole.MEMBER, UserRole.ADMIN);
