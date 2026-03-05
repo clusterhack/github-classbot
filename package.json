@@ -32,6 +32,7 @@
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
     "@octokit/request-error": "^7.1.0",
+    "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.163.3",
     "body-parser": "^2.2.2",
     "deepmerge": "^4.3.1",

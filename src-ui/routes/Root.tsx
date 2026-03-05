@@ -1,5 +1,6 @@
 import React from "react";
-import { createRootRoute, Link as RouterLink, Outlet } from "@tanstack/react-router";
+import { createRootRouteWithContext, Link as RouterLink, Outlet } from "@tanstack/react-router";
+import { QueryClient } from "@tanstack/react-query";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
@@ -223,7 +224,7 @@ function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
   );
 }
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: Root,
   loader: async () => {
     const res = await fetch("/classbot/api/self/profile");
