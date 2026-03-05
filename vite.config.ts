@@ -12,6 +12,16 @@ export default defineConfig({
   build: {
     outDir: "../lib-ui",
     emptyOutDir: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          mui: ["@mui/material"], // XXX Including "@mui/icons-material" significantly slows down the build...
+          emotion: ["@emotion/react", "@emotion/styled"],
+          //tanstack: ["@tanstack/react-router", "@tanstack/react-query"],
+        },
+      },
+    },
   },
   server: {
     port: 4000, // TODO Move to dotenv files (when time)

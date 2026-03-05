@@ -92,9 +92,11 @@ function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
       }
       // If total_count is defined, set rel=last header
       if (pagination.totalCount !== undefined) {
+        const last_offset =
+          offset + Math.floor((pagination.totalCount - offset) / per_page) * per_page;
         link_header.set({
           rel: "last",
-          uri: `${link_url}?${qs.stringify({ ...link_query, offset: Math.floor(pagination.totalCount / per_page) })}`,
+          uri: `${link_url}?${qs.stringify({ ...link_query, offset: last_offset })}`,
         });
       }
 
@@ -107,6 +109,7 @@ function paginationMiddleware(default_per_page = 20, max_per_page = 60) {
               per_page: per_page,
               offset: offset,
               data: pagination.responseData,
+              ...(pagination.totalCount !== undefined && { total_count: pagination.totalCount }),
             }
       );
     };
@@ -283,10 +286,12 @@ export function apiRoutes(options?: APIRouteOptions) {
   apiRouter.get(
     "/users",
     requireAdmin,
+    paginationQueryHandler,
     asyncHandleExceptions(async (_req, res) => {
-      // TODO Handle pagination
-      const data = await User.query();
-      res.json(data);
+      const pagination = res.locals.pagination!;
+      pagination.responseData = await paginatedQuery(User.query(), pagination);
+      pagination.totalCount = await User.query().resultSize();
+      pagination.finalize(); // XXX Hack (see paginationMiddleware)
     })
   );
 
