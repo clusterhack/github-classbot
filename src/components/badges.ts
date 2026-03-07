@@ -1,5 +1,5 @@
 import path from "node:path";
-import { Probot, Context } from "probot";
+import { Probot, Context, Logger } from "probot";
 import { RequestError as OctokitError } from "@octokit/request-error";
 import { CheckRunCompletedEvent } from "@octokit/webhooks-types";
 
@@ -165,9 +165,12 @@ function _replaceMissing(val: number | undefined, missingText: string): number |
 }
 
 type Score = { score: string | number; max_score: string | number };
-function parseAutogradingScore(scoreSummary: string): Score;
-function parseAutogradingScore(event: CheckRunCompletedEvent): Score;
-function parseAutogradingScore(eventOrSummary: string | CheckRunCompletedEvent): Score {
+function parseAutogradingScore(scoreSummary: string, log: Logger): Score;
+function parseAutogradingScore(event: CheckRunCompletedEvent, log: Logger): Score;
+function parseAutogradingScore(
+  eventOrSummary: string | CheckRunCompletedEvent,
+  log: Logger
+): Score {
   const result: Score = { score: "??", max_score: "??" };
   if (typeof eventOrSummary === "object") {
     switch (eventOrSummary.check_run.conclusion) {
@@ -185,7 +188,7 @@ function parseAutogradingScore(eventOrSummary: string | CheckRunCompletedEvent):
   }
 
   // Expected format: "Points 100/100"
-  console.log(`Parse score from: ${eventOrSummary}`);
+  log.info(`Parse score from: ${eventOrSummary}`);
   const grp = eventOrSummary.match(/^Points\s+(?<score>\d+)\s*\/\s*(?<max_score>\d+)/)?.groups;
   result.score = _replaceMissing(grp && parseInt(grp.score), "??");
   result.max_score = _replaceMissing(grp && parseInt(grp.max_score), "??");
@@ -215,7 +218,7 @@ export default async function (
     return;
   }
 
-  const { score, max_score } = parseAutogradingScore(context.payload);
+  const { score, max_score } = parseAutogradingScore(context.payload, log);
   log.info(`Autograde score=${score}, max_score=${max_score}`);
 
   const badge = createPointsBadge(score, max_score);

@@ -1,30 +1,11 @@
-import dotenv from "dotenv";
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH });
-
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import helmet from "helmet";
-import { Model } from "objection";
-import Knex from "knex";
-import express from "express";
-// eslint-disable-next-line node/no-unpublished-import
-import { createProxyMiddleware } from "http-proxy-middleware"; // Only used for dev server
 import { ApplicationFunction, Context, Probot } from "probot";
 
 import { getConfig } from "./config.js";
-import { isEnvTruthy } from "./util.js";
-import { sessionMiddleware } from "./session.js";
-import { authMiddleware, oauthRoutes } from "./auth.js";
-import { apiRoutes } from "./api.js";
 import watchdog from "./components/watchdog.js";
 import autograde from "./components/autograde.js";
 import badges, { statusBranchSetup } from "./components/badges.js";
 import gradelog from "./components/gradelog.js";
 import { classroomWorkflowSetup } from "./components/workflows.js";
-
-// Polyfill for __dirname
-// XXX For node >= 21.2.0, could just use import.meta.dirname
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Global config constants
 // TODO Fix default fallbacks (or, alternatively, fail on undefined)
@@ -55,7 +36,7 @@ function classbotSkipRepo(owner: string, repo: string): boolean {
   return false;
 }
 
-const classbotApp: ApplicationFunction = (app: Probot, { getRouter }) => {
+const classbotApp: ApplicationFunction = (app: Probot) => {
   const log = app.log;
 
   log?.info("Classbot starting...");
@@ -69,24 +50,6 @@ CLASSBOT_REPO_NAME_PATTERN: ${CLASSBOT_REPO_NAME_PATTERN}
 CLASSBOT_DB_DATABASE: ${process.env.CLASSBOT_DB_DATABASE}
 CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   `);
-
-  /***********************************************************************
-   * Database
-   */
-
-  const knex = Knex({
-    client: "mysql",
-    useNullAsDefault: true,
-    connection: {
-      host: "127.0.0.1",
-      port: 3306,
-      user: process.env.CLASSBOT_DB_USER,
-      password: process.env.CLASSBOT_DB_PASSWORD,
-      database: process.env.CLASSBOT_DB_DATABASE,
-    },
-  });
-
-  Model.knex(knex);
 
   /***********************************************************************
    * Webhooks
@@ -165,92 +128,6 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   //   // log?.info(context);
   //   log?.info("pull_request.opened");
   // });
-
-  /***********************************************************************
-   * Additional routes
-   */
-
-  const router = getRouter!("/classbot");
-
-  const proxyViteServer =
-    process.env.NODE_ENV === "development" && !isEnvTruthy(process.env.VITE_DEV_STATIC);
-
-  // Basic security (helmet)
-  router.use(
-    helmet({
-      referrerPolicy: { policy: "same-origin" },
-      hidePoweredBy: false,
-      crossOriginEmbedderPolicy: { policy: "credentialless" },
-      contentSecurityPolicy: {
-        directives: {
-          "img-src": ["'self'", "data:", "https://avatars.githubusercontent.com"],
-          // Vite dev server injects script into index, for HMR websockets; ok to allow just in dev
-          ...(proxyViteServer && { "script-src": ["'self'", "'unsafe-inline'"] }),
-        },
-      },
-    })
-  );
-
-  // Sessions
-  router.use(
-    sessionMiddleware({
-      proxy: true,
-      sameSite: "none",
-      secure: true,
-      logger: log?.child({ name: "session-store" }),
-    })
-  );
-
-  // OAuth login
-  router.use(
-    "/oauth",
-    oauthRoutes("pybait", {
-      redirect: "/classbot",
-      logger: log?.child({ name: "oauth-login" }),
-    })
-  );
-
-  // User authentication
-  router.use(
-    authMiddleware("/classbot/oauth/login", {
-      loadUser: true,
-      userFetchRelations: "orgs.assignments", // XXX Also determines behavior of /api/self/profile endpoint ...hmm
-      logger: log?.child({ name: "auth-session" }),
-    })
-  );
-
-  // REST API endpoints
-  router.use("/api", apiRoutes({ logger: log?.child({ name: "api" }) }));
-
-  // Frontend  // TODO?
-  // XXX We *could* use vite server in middleware mode (https://vitejs.dev/config/server-options.html#server-middlewaremode)
-  //   but, since we use two very different tsconfigs for bot and ui, I don't want / have time to deal with surprises right now
-  //  (...however small the chance).
-  if (!proxyViteServer) {
-    // Serve static assets from build dir
-    log?.info("Frontend: directly serving bundled static assets");
-    router.use("/ui", express.static(path.join(__dirname, "../lib-ui")));
-    // Fallback route, to make GET requests directly into react-router routes work correctly..
-    router.get("/ui/*splat", (_req, res) => {
-      res.sendFile(path.join(__dirname, "../lib-ui/index.html"));
-    });
-  } else {
-    // Proxy to dev server (easier this way around, with all the webhook HTTPS stuff etc)
-    log?.info("Frontend: proxying to Vite dev server");
-    router.use(
-      "/ui",
-      createProxyMiddleware({
-        target: `http://localhost:${process.env.VITE_DEV_PORT || 4000}/`,
-        ws: true,
-      })
-    );
-  }
-
-  // XXX Just for basic testing...
-  router.get("/", (req, res) => {
-    const name = req.user?.name || req.session.data?.userid;
-    res.send(`Hello, ${name}!`);
-  });
 };
 
 export default classbotApp;
