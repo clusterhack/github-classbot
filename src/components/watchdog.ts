@@ -4,11 +4,11 @@ import ignore from "ignore";
 import Mustache from "mustache";
 import { ref } from "objection";
 
-import { ClassbotConfig, ClassbotComponentConfig, normalizeFileManifest } from "../types";
-import { isComponentEnabled } from "../config";
-import { parseAssignmentRepo } from "../util";
-import { Assignment, AssignmentWithGraph } from "../db/models/classroom";
-import { Alert } from "../db/models/alert";
+import { ClassbotConfig, ClassbotComponentConfig, normalizeFileManifest } from "../types.js";
+import { isComponentEnabled } from "../config.js";
+import { parseAssignmentRepo } from "../util.js";
+import { Assignment, AssignmentWithGraph } from "../db/models/classroom.js";
+import { Alert } from "../db/models/alert.js";
 
 export interface WatchdogConfig extends ClassbotComponentConfig {
   validate_files?: boolean;

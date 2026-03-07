@@ -6,13 +6,13 @@ import { Logger } from "probot";
 import { Model, QueryBuilder } from "objection";
 import LinkHeader from "http-link-header";
 
-import { HTTPError } from "./types";
-import { requireRole } from "./auth";
-import { asyncHandleExceptions, stringEnumValues } from "./util";
-import { User, UserRole } from "./db/models/user";
-import { Assignment, ClassroomOrg } from "./db/models/classroom";
-import { Submission } from "./db/models/submission";
-import { Alert } from "./db/models/alert";
+import { HTTPError } from "./types.js";
+import { requireRole } from "./auth.js";
+import { asyncHandleExceptions, stringEnumValues } from "./util.js";
+import { User, UserRole } from "./db/models/user.js";
+import { Assignment, ClassroomOrg } from "./db/models/classroom.js";
+import { Submission } from "./db/models/submission.js";
+import { Alert } from "./db/models/alert.js";
 
 // TODO? Extend express.Request interface with .locals.user optional key
 

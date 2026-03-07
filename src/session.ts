@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import session, { CookieOptions, SessionOptions, SessionData, Store } from "express-session";
 import { Logger } from "probot";
 
-import { UserSession, UserSessionData } from "./db/models/user";
+import { UserSession, UserSessionData } from "./db/models/user.js";
 
 export interface SessionMiddlewareOptions {
   logger?: Logger;

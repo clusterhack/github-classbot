@@ -1,6 +1,6 @@
 import { Probot, Context } from "probot";
-import { isComponentEnabled } from "../config";
-import { ClassbotConfig, ClassbotComponentConfig } from "../types";
+import { isComponentEnabled } from "../config.js";
+import { ClassbotConfig, ClassbotComponentConfig } from "../types.js";
 
 export interface AutogradeConfig extends ClassbotComponentConfig {
   skeleton: {

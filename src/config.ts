@@ -1,10 +1,10 @@
 import path from "node:path";
 import deepmerge from "deepmerge";
 import { Context } from "probot";
-import { ClassbotConfig, ClassbotComponentConfig, ClassbotConfigError } from "./types";
+import { ClassbotConfig, ClassbotComponentConfig, ClassbotConfigError } from "./types.js";
 
-import defaultConfig from "./config_default";
-import { parseAssignmentRepo } from "./util";
+import defaultConfig from "./config_default.js";
+import { parseAssignmentRepo } from "./util.js";
 
 console.log(defaultConfig);
 

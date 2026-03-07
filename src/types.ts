@@ -1,8 +1,8 @@
-import { AutogradeConfig } from "./components/autograde";
-import { BadgesConfig } from "./components/badges";
-import { GradeLogConfig } from "./components/gradelog";
-import { WatchdogConfig } from "./components/watchdog";
-import { WorkflowsConfig } from "./components/workflows";
+import { AutogradeConfig } from "./components/autograde.js";
+import { BadgesConfig } from "./components/badges.js";
+import { GradeLogConfig } from "./components/gradelog.js";
+import { WatchdogConfig } from "./components/watchdog.js";
+import { WorkflowsConfig } from "./components/workflows.js";
 
 export class ClassbotError extends Error {}
 

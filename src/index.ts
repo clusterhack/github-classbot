@@ -1,6 +1,8 @@
-require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH });
+import dotenv from "dotenv";
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH });
 
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import helmet from "helmet";
 import { Model } from "objection";
 import Knex from "knex";
@@ -9,16 +11,20 @@ import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware"; // Only used for dev server
 import { ApplicationFunction, Context, Probot } from "probot";
 
-import { getConfig } from "./config";
-import { isEnvTruthy } from "./util";
-import { sessionMiddleware } from "./session";
-import { authMiddleware, oauthRoutes } from "./auth";
-import { apiRoutes } from "./api";
-import watchdog from "./components/watchdog";
-import autograde from "./components/autograde";
-import badges, { statusBranchSetup } from "./components/badges";
-import gradelog from "./components/gradelog";
-import { classroomWorkflowSetup } from "./components/workflows";
+import { getConfig } from "./config.js";
+import { isEnvTruthy } from "./util.js";
+import { sessionMiddleware } from "./session.js";
+import { authMiddleware, oauthRoutes } from "./auth.js";
+import { apiRoutes } from "./api.js";
+import watchdog from "./components/watchdog.js";
+import autograde from "./components/autograde.js";
+import badges, { statusBranchSetup } from "./components/badges.js";
+import gradelog from "./components/gradelog.js";
+import { classroomWorkflowSetup } from "./components/workflows.js";
+
+// Polyfill for __dirname
+// XXX For node >= 21.2.0, could just use import.meta.dirname
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Global config constants
 // TODO Fix default fallbacks (or, alternatively, fail on undefined)

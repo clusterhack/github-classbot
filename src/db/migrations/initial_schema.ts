@@ -1,8 +1,8 @@
 import { Knex } from "knex";
 
-import { stringEnumValues } from "../../util";
-import { UserRole } from "../models/user";
-import { CodeSubmissionScoredBy, CodeSubmissionStatus } from "../models/submission";
+import { stringEnumValues } from "../../util.js";
+import { UserRole } from "../models/user.js";
+import { CodeSubmissionScoredBy, CodeSubmissionStatus } from "../models/submission.js";
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema

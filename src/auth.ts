@@ -2,10 +2,10 @@ import querystring from "node:querystring";
 import express from "express";
 
 import { Logger, ProbotOctokit } from "probot";
-
-import { HTTPError } from "./types";
 import { RelationExpression } from "objection";
-import { User, UserRole } from "./db/models/user";
+
+import { HTTPError } from "./types.js";
+import { User, UserRole } from "./db/models/user.js";
 
 export class AuthError extends HTTPError {
   constructor(message?: string, status?: number) {

@@ -2,17 +2,17 @@ import JSZip from "jszip";
 import { Probot, Context } from "probot";
 // import { ref } from "objection";
 
-import { Assignment, AssignmentWithGraph } from "../db/models/classroom";
+import { Assignment, AssignmentWithGraph } from "../db/models/classroom.js";
 import {
   Submission,
   CodeSubmission,
   CodeSubmissionScoredBy,
   CodeSubmissionStatus,
-} from "../db/models/submission";
+} from "../db/models/submission.js";
 
-import { isComponentEnabled } from "../config";
-import { ClassbotConfig, ClassbotComponentConfig } from "../types";
-import { asStringEnum, parseAssignmentRepo } from "../util";
+import { isComponentEnabled } from "../config.js";
+import { ClassbotConfig, ClassbotComponentConfig } from "../types.js";
+import { asStringEnum, parseAssignmentRepo } from "../util.js";
 
 export interface GradeLogConfig extends ClassbotComponentConfig {
   job_name: string;
@@ -60,7 +60,9 @@ export default async function (
   }
 
   // Fetch assignment from database
-  log.info(`parseAssignmentRepo(${repo}, ${commitResp.data.author.login}) -> ${JSON.stringify(parseAssignmentRepo(repo, commitResp.data.author.login), undefined, 2)}`)
+  log.info(
+    `parseAssignmentRepo(${repo}, ${commitResp.data.author.login}) -> ${JSON.stringify(parseAssignmentRepo(repo, commitResp.data.author.login), undefined, 2)}`
+  );
   const assignmentName = parseAssignmentRepo(repo, commitResp.data.author.login)?.assignment;
   const assignmentOrgId = context.payload.repository.owner.id;
   if (!assignmentName) {

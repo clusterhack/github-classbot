@@ -3,8 +3,8 @@ import { Probot, Context } from "probot";
 import { RequestError as OctokitError } from "@octokit/request-error";
 import { CheckRunCompletedEvent } from "@octokit/webhooks-types";
 
-import { isComponentEnabled } from "../config";
-import { ClassbotConfig, ClassbotComponentConfig } from "../types";
+import { isComponentEnabled } from "../config.js";
+import { ClassbotConfig, ClassbotComponentConfig } from "../types.js";
 
 export interface BadgesConfig extends ClassbotComponentConfig {
   branch: string;

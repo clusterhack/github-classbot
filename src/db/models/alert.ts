@@ -1,7 +1,7 @@
 import { Model } from "objection";
 
-import { User } from "./user";
-import { Assignment } from "./classroom";
+import { User } from "./user.js";
+import { Assignment } from "./classroom.js";
 
 export class Alert extends Model {
   id!: number; // autoinc

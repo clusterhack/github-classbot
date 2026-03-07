@@ -1,5 +1,5 @@
 import { Model } from "objection";
-import { ClassroomOrg } from "./classroom";
+import { ClassroomOrg } from "./classroom.js";
 
 export enum UserRole {
   ADMIN = "admin",

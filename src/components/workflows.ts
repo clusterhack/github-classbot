@@ -1,8 +1,8 @@
 import { Probot, Context } from "probot";
 import { RequestError as OctokitError } from "@octokit/request-error";
 
-import { isComponentEnabled } from "../config";
-import { ClassbotConfig, ClassbotComponentConfig } from "../types";
+import { isComponentEnabled } from "../config.js";
+import { ClassbotConfig, ClassbotComponentConfig } from "../types.js";
 
 export interface WorkflowsConfig extends ClassbotComponentConfig {
   // Paths relative to repo root (*not* to .github folder)

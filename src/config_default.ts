@@ -1,4 +1,4 @@
-import { ClassbotConfig } from "./types";
+import { ClassbotConfig } from "./types.js";
 
 const defaultConfig: ClassbotConfig = {
   classroom: {
