@@ -1,4 +1,4 @@
 import { run } from "probot";
-import app from "./index.js";
+import app from "./robot.js";
 
 run(app);
