@@ -31,12 +31,6 @@ export function isEnvTruthy(value?: string): boolean {
 export type AsyncRequestHandler = {
   (...args: Parameters<express.RequestHandler>): Promise<void>;
 };
-export function asyncHandleExceptions(fn: AsyncRequestHandler): AsyncRequestHandler {
-  return async (req, res, next) =>
-    Promise.resolve()
-      .then(async () => fn(req, res, next))
-      .catch(next);
-}
 
 // Aux function to make $parseDatabaseJson implementations more concise.
 // If json[key] is a string, then replace it with result of parsing it as JSON.

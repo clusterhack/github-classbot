@@ -8,13 +8,12 @@ import LinkHeader from "http-link-header";
 
 import { HTTPError } from "./types.js";
 import { requireRole } from "./auth.js";
-import { asyncHandleExceptions, stringEnumValues } from "./util.js";
+import { AsyncRequestHandler, stringEnumValues } from "./util.js";
 import { User, UserRole } from "./db/models/user.js";
 import { Assignment, ClassroomOrg } from "./db/models/classroom.js";
 import { Submission } from "./db/models/submission.js";
 import { Alert } from "./db/models/alert.js";
-
-// TODO? Extend express.Request interface with .locals.user optional key
+import { ParamsDictionary, Request } from "express-serve-static-core";
 
 export interface APIRouteOptions {
   logger?: Logger;
@@ -192,7 +191,7 @@ function getRecordsHandler(modelClass: typeof Model, opts: RecordsHandlerOptions
   const fetchRelExpr = opts.fetchRelExpr || { assignment: true };
   const sortColumn = opts.sortColumn || "id";
 
-  return asyncHandleExceptions(async (req, res) => {
+  const handler: AsyncRequestHandler = async (req, res) => {
     const where: GetRecordsQuery = {
       userid: opts.getUserId && opts.getUserId(req, res),
       orgName: req.params.orgname as string,
@@ -209,7 +208,8 @@ function getRecordsHandler(modelClass: typeof Model, opts: RecordsHandlerOptions
     pagination.bareResponse = opts.bareResponse;
     pagination.responseData = records;
     pagination.finalize(); // XXX FIXME Hack (see paginationMiddleware)
-  });
+  };
+  return handler;
 }
 
 export function apiRoutes(options?: APIRouteOptions) {
@@ -224,7 +224,7 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   // Middleware to validate :userid parameter and fetch corresponding user record from database
   // TODO Seems express has API for param validation/parsing? RTFM when time, and use that instead..?
-  const validateUserIdParam = asyncHandleExceptions(async (req, res, next) => {
+  const validateUserIdParam: AsyncRequestHandler = async (req, res, next) => {
     const userid = parseInt(req.params.userid as string);
     if (isNaN(userid)) {
       throw new APIError("Invalid userid URL path parameter: ${req.params.userid}");
@@ -236,7 +236,7 @@ export function apiRoutes(options?: APIRouteOptions) {
     log?.info(`Validated userid path param to ${userid}`);
     res.locals.user = user;
     next();
-  });
+  };
   // Ditto, but for :orgname parameter // TODO Ditto (post-RTFM)
   // TODO!! Need to rewrite getRecord handler to incorporate this...
   // const validateOrgNameParam = asyncHandleExceptions(async (req, res, next) => {
@@ -283,49 +283,40 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   // ***********************************************************************
 
-  apiRouter.get(
-    "/users",
-    requireAdmin,
-    paginationQueryHandler,
-    asyncHandleExceptions(async (_req, res) => {
-      const pagination = res.locals.pagination!;
-      pagination.responseData = await paginatedQuery(User.query(), pagination);
-      pagination.totalCount = await User.query().resultSize();
-      pagination.finalize(); // XXX Hack (see paginationMiddleware)
-    })
-  );
+  apiRouter.get("/users", requireAdmin, paginationQueryHandler, async (_req, res) => {
+    const pagination = res.locals.pagination!;
+    pagination.responseData = await paginatedQuery(User.query(), pagination);
+    pagination.totalCount = await User.query().resultSize();
+    pagination.finalize(); // XXX Hack (see paginationMiddleware)
+  });
 
-  apiRouter.post(
-    "/user/create",
-    requireAdmin,
-    asyncHandleExceptions(async (req, res) => {
-      if (req.body === undefined) {
-        throw new APIError("Missing request body");
+  apiRouter.post("/user/create", requireAdmin, async (req, res) => {
+    if (req.body === undefined) {
+      throw new APIError("Missing request body");
+    }
+    const users = req.body instanceof Array ? req.body : [req.body];
+    const allowedFields = ["user", "username", "sisId", "role", "name"];
+    // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const validateUser = (user: any) => {
+      if (typeof user.id !== "number") {
+        throw new APIError(`Missing or malformed id in ${user}`);
       }
-      const users = req.body instanceof Array ? req.body : [req.body];
-      const allowedFields = ["user", "username", "sisId", "role", "name"];
-      // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const validateUser = (user: any) => {
-        if (typeof user.id !== "number") {
-          throw new APIError(`Missing or malformed id in ${user}`);
-        }
-        if (typeof user.username !== "string") {
-          throw new APIError(`Missing or malformed username in ${user}`);
-        }
-        if (user.role && !stringEnumValues(UserRole).includes(user.role)) {
-          throw new APIError(`Invalid role in ${user}`);
-        }
-        if (!Object.keys(user).every(k => allowedFields.includes(k))) {
-          // XXX Yech..?
-          throw new APIError(`Unexpected field in ${user}`);
-        }
-      };
-      users.forEach(u => validateUser(u));
-      const result = await User.query().insertAndFetch(users);
-      res.json(result);
-    })
-  );
+      if (typeof user.username !== "string") {
+        throw new APIError(`Missing or malformed username in ${user}`);
+      }
+      if (user.role && !stringEnumValues(UserRole).includes(user.role)) {
+        throw new APIError(`Invalid role in ${user}`);
+      }
+      if (!Object.keys(user).every(k => allowedFields.includes(k))) {
+        // XXX Yech..?
+        throw new APIError(`Unexpected field in ${user}`);
+      }
+    };
+    users.forEach(u => validateUser(u));
+    const result = await User.query().insertAndFetch(users);
+    res.json(result);
+  });
 
   const adminUserRouter = express.Router({ mergeParams: true });
   apiRouter.use("/user/:userid", adminUserRouter);
@@ -338,22 +329,20 @@ export function apiRoutes(options?: APIRouteOptions) {
       log?.info(`Admin / get user profile:\n${JSON.stringify(res.locals.user)}`);
       res.json(res.locals.user);
     })
-    .put(
-      asyncHandleExceptions(async (req, res) => {
-        // Validate request body parameters
-        const allowedFields = ["name", "sisId", "role"];
-        if (req.body === undefined) {
-          throw new APIError("Missing request body");
-        }
-        if (!Object.keys(req.body).every(k => allowedFields.includes(k))) {
-          throw new APIError("Unexpected field found in request body");
-        }
-        // Update database
-        const updatedUser = await User.query().patchAndFetchById(res.locals.user!.id, req.body);
-        // TODO! Sort out error handling (undefined and/or exception from patchAndFetchById)
-        res.json(updatedUser);
-      })
-    );
+    .put(async (req, res) => {
+      // Validate request body parameters
+      const allowedFields = ["name", "sisId", "role"];
+      if (req.body === undefined) {
+        throw new APIError("Missing request body");
+      }
+      if (!Object.keys(req.body).every(k => allowedFields.includes(k))) {
+        throw new APIError("Unexpected field found in request body");
+      }
+      // Update database
+      const updatedUser = await User.query().patchAndFetchById(res.locals.user!.id, req.body);
+      // TODO! Sort out error handling (undefined and/or exception from patchAndFetchById)
+      res.json(updatedUser);
+    });
   const adminUserSubmissionsHandlers: express.RequestHandler[] = [
     paginationQueryHandler,
     getRecordsHandler(Submission, {
@@ -379,56 +368,44 @@ export function apiRoutes(options?: APIRouteOptions) {
 
   // ***********************************************************************
 
-  apiRouter.get(
-    "/orgs",
-    requireAdmin,
-    asyncHandleExceptions(async (_req, res) => {
-      const data = await ClassroomOrg.query();
-      res.json(data);
-    })
-  );
+  apiRouter.get("/orgs", requireAdmin, async (_req, res) => {
+    const data = await ClassroomOrg.query();
+    res.json(data);
+  });
 
-  apiRouter.post(
-    "/org/create",
-    requireAdmin,
-    asyncHandleExceptions(async (req, res) => {
-      if (req.body === undefined) {
-        throw new APIError("Missing request body");
-      }
-      const org = req.body;
-      const allowedFields = ["id", "name", "description"];
-      // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (typeof org.id !== "number") {
-        throw new APIError("Missing or malformed id field");
-      }
-      if (typeof org.name !== "string") {
-        throw new APIError("Missing or malformed name field");
-      }
-      if (!Object.keys(org).every(k => allowedFields.includes(k))) {
-        // XXX Yech..?
-        throw new APIError("Unexpected field");
-      }
-      const result = ClassroomOrg.query().insertAndFetch(org);
-      res.json(result);
-    })
-  );
+  apiRouter.post("/org/create", requireAdmin, async (req, res) => {
+    if (req.body === undefined) {
+      throw new APIError("Missing request body");
+    }
+    const org = req.body;
+    const allowedFields = ["id", "name", "description"];
+    // TODO All this validation shouldn't be necessary once we add JSON schemas to db models...
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof org.id !== "number") {
+      throw new APIError("Missing or malformed id field");
+    }
+    if (typeof org.name !== "string") {
+      throw new APIError("Missing or malformed name field");
+    }
+    if (!Object.keys(org).every(k => allowedFields.includes(k))) {
+      // XXX Yech..?
+      throw new APIError("Unexpected field");
+    }
+    const result = ClassroomOrg.query().insertAndFetch(org);
+    res.json(result);
+  });
 
   const adminOrgRouter = express.Router({ mergeParams: true });
   apiRouter.use("/org/:orgname", adminOrgRouter);
 
   adminOrgRouter.use(requireAdmin);
-  adminOrgRouter.get(
-    "/assignments",
-    asyncHandleExceptions(async (req, res) => {
-      log?.info(`Get assignments url: ${req.url} baseUrl: ${req.baseUrl}`);
-      log?.info(`Get assignments req.params: ${JSON.stringify(req.params, undefined, 2)}`);
-      const _query = Assignment.query().where("org", req.params.orgname as string);
-      log?.info(`Get assignments query: ${_query}`);
-      const data = await _query;
-      res.json(data);
-    })
-  );
+  // XXX Not quite sure why Request generic arg is {} here, but ParamsDictionary elsewhere...
+  adminOrgRouter.get("/assignments", async (req: Request<ParamsDictionary>, res) => {
+    log?.info(`Get assignments url: ${req.url} baseUrl: ${req.baseUrl}`);
+    log?.info(`Get assignments req.params: ${JSON.stringify(req.params, undefined, 2)}`);
+    const data = await Assignment.query().where("orgId", req.params.orgname as string);
+    res.json(data);
+  });
   const adminOrgSubmissionsHandlers: express.RequestHandler[] = [
     paginationQueryHandler,
     getRecordsHandler(Submission, {
