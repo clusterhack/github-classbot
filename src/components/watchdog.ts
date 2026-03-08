@@ -1,5 +1,5 @@
 import { Probot, Context } from "probot";
-import { Commit } from "@octokit/webhooks-types";
+
 import ignore from "ignore";
 import Mustache from "mustache";
 import { ref } from "objection";
@@ -9,6 +9,9 @@ import { isComponentEnabled } from "../config.js";
 import { parseAssignmentRepo } from "../util.js";
 import { Assignment, AssignmentWithGraph } from "../db/models/classroom.js";
 import { Alert } from "../db/models/alert.js";
+
+// Derive Commit type from the push event payload (replaces @octokit/webhooks-types)
+type Commit = Context<"push">["payload"]["commits"][number];
 
 export interface WatchdogConfig extends ClassbotComponentConfig {
   validate_files?: boolean;
@@ -57,9 +60,9 @@ export function findInvalidCommitFiles(
     }
     setUnionUpdate(
       invalidFiles,
-      commit.modified.filter(notInManifest),
-      commit.removed.filter(notInManifest),
-      commit.added.filter(notInManifest)
+      commit.modified?.filter(notInManifest) || [],
+      commit.removed?.filter(notInManifest) || [],
+      commit.added?.filter(notInManifest) || []
     );
   }
   return [...invalidFiles];
@@ -132,7 +135,7 @@ export async function fileWatchdogIssue(
 
   // Search open issues (with classbot's label)
   const openIssues = (
-    await context.octokit.issues.listForRepo({
+    await context.octokit.rest.issues.listForRepo({
       owner,
       repo,
       state: "open",
@@ -147,7 +150,7 @@ export async function fileWatchdogIssue(
   if (openIssues.length === 0) {
     // No previous open issue exists
     console.log("Filing new issue");
-    return await context.octokit.issues.create({
+    return await context.octokit.rest.issues.create({
       owner,
       repo,
       title,
@@ -168,7 +171,7 @@ export async function fileWatchdogIssue(
     // Updates in reverse-chrono order
     const updatedBody = `***Updated on ${timestamp}:***\n\n${alert}${body}\n---\n\n${issue.body}`;
     console.log(`Updating previous issue #${issue.number}`);
-    return await context.octokit.issues.update({
+    return await context.octokit.rest.issues.update({
       owner,
       repo,
       issue_number: issue.number,
@@ -183,7 +186,7 @@ export async function createTimestampComment(context: Context<"push">, timestamp
     timestamp = new Date();
   }
   const { owner, repo } = context.repo();
-  await context.octokit.repos.createCommitComment({
+  await context.octokit.rest.repos.createCommitComment({
     owner,
     repo,
     commit_sha: context.payload.commits.at(-1)?.id as string,
@@ -250,7 +253,7 @@ export default async function (
 
   // Validate commiter and author
   if (config.watchdog.validate_author === true) {
-    const resp = await context.octokit.repos.listCollaborators({
+    const resp = await context.octokit.rest.repos.listCollaborators({
       owner,
       repo,
       affiliation: "direct",
@@ -297,7 +300,7 @@ export default async function (
 
     try {
       // Figure out author of push head (after) sha
-      const commitResp = await context.octokit.repos.getCommit({
+      const commitResp = await context.octokit.rest.repos.getCommit({
         owner,
         repo,
         ref: context.payload.after,
@@ -308,7 +311,7 @@ export default async function (
       // TODO For now, we just don't log those into db, but eventually want to find the "student owner" of the repo
       //   (which, for GH is an external collaborator, and we don't store any mapping in our db, so.. TBD!)
       const assignmentName = parseAssignmentRepo(repo, commitResp.data.author?.login)?.assignment;
-      const assignmentOrgId = context.payload.repository.owner.id;
+      const assignmentOrgId = context.payload.repository.owner!.id;
       if (!assignmentName) {
         throw new Error("Cannot parse assignment name; giving up on db record"); // XXX Hurried..
       }

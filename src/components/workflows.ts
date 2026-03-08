@@ -65,7 +65,7 @@ export async function classroomWorkflowSetup(
 
   // Check that file does not already exist
   try {
-    await context.octokit.repos.getContent({ owner, repo, path: dstPath });
+    await context.octokit.rest.repos.getContent({ owner, repo, path: dstPath });
     // Since this is a one-time setup, doesn't make sense to do diff vs srcPath ...
     log.info(`Workflow ${dstPath} already exists; skipping setup`);
     return;
@@ -77,7 +77,7 @@ export async function classroomWorkflowSetup(
   let getResp = undefined;
   try {
     getResp = (
-      await context.octokit.repos.getContent({
+      await context.octokit.rest.repos.getContent({
         owner,
         repo,
         path: srcPath,
@@ -100,7 +100,7 @@ export async function classroomWorkflowSetup(
   }
 
   // ...and copy it into destination, if it does exist
-  const resp = await context.octokit.repos.createOrUpdateFileContents({
+  const resp = await context.octokit.rest.repos.createOrUpdateFileContents({
     owner,
     repo,
     path: dstPath,

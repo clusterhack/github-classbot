@@ -103,7 +103,7 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
           },
           log: log, // TODO? Is this necessary (or else, should it be a child?)
         });
-        const authRes = await octokit.users.getAuthenticated();
+        const authRes = await octokit.rest.users.getAuthenticated();
         if (authRes.status !== 200) {
           throw new OAuthError("Cannot get authenticated user", authRes.status); // TODO? Double-check status
         }
@@ -123,7 +123,7 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
           // Get user's org role
           let userRole = UserRole.MEMBER; // Safe default
           try {
-            const memberRes = await octokit.orgs.getMembershipForUser({
+            const memberRes = await octokit.rest.orgs.getMembershipForUser({
               org: org_name,
               username: username,
             });

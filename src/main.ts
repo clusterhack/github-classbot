@@ -61,7 +61,7 @@ const probot = createProbot({
   },
 });
 express.use(
-  createNodeMiddleware(app, {
+  await createNodeMiddleware(app, {
     webhooksPath: "/api/github/webhooks",
     probot,
   })

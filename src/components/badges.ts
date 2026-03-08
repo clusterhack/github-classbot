@@ -1,10 +1,12 @@
 import path from "node:path";
 import { Probot, Context, Logger } from "probot";
 import { RequestError as OctokitError } from "@octokit/request-error";
-import { CheckRunCompletedEvent } from "@octokit/webhooks-types";
 
 import { isComponentEnabled } from "../config.js";
 import { ClassbotConfig, ClassbotComponentConfig } from "../types.js";
+
+// Derive CheckRunCompletedEvent type from the check_run event payload (replaces @octokit/webhooks-types)
+type CheckRunCompletedEvent = Context<"check_run.completed">["payload"];
 
 export interface BadgesConfig extends ClassbotComponentConfig {
   branch: string;
@@ -80,7 +82,7 @@ export async function statusBranchSetup(
 
   // Check if branch already exists
   const matchingRefs = (
-    await context.octokit.git.listMatchingRefs({
+    await context.octokit.rest.git.listMatchingRefs({
       owner,
       repo,
       ref: branchRef,
@@ -97,7 +99,7 @@ export async function statusBranchSetup(
   try {
     // Create badges sub-tree
     const badgesTreeSha = (
-      await context.octokit.git.createTree({
+      await context.octokit.rest.git.createTree({
         owner,
         repo,
         tree: [
@@ -114,7 +116,7 @@ export async function statusBranchSetup(
     // Create root tree
     // Config validation ensures that badges.path is not nested, so this should be fine
     const rootTreeSha = (
-      await context.octokit.git.createTree({
+      await context.octokit.rest.git.createTree({
         owner,
         repo,
         tree: [
@@ -130,7 +132,7 @@ export async function statusBranchSetup(
 
     // Create commit with new root tree
     const commitSha = (
-      await context.octokit.git.createCommit({
+      await context.octokit.rest.git.createCommit({
         owner,
         repo,
         message: `Setting up "${branch}" orphan branch`,
@@ -140,7 +142,7 @@ export async function statusBranchSetup(
     ).data.sha;
 
     // Create branch reference to new commit
-    const refResp = await context.octokit.git.createRef({
+    const refResp = await context.octokit.rest.git.createRef({
       owner,
       repo,
       ref: branchRef,
@@ -226,7 +228,7 @@ export default async function (
 
   // Updating file contents requires blob SHA of current contents
   const oldContents = (
-    await context.octokit.repos.getContent({
+    await context.octokit.rest.repos.getContent({
       owner,
       repo,
       path: badgeFile,
@@ -242,7 +244,7 @@ export default async function (
     return;
   }
 
-  const resp = await context.octokit.repos.createOrUpdateFileContents({
+  const resp = await context.octokit.rest.repos.createOrUpdateFileContents({
     owner,
     repo,
     path: badgeFile,

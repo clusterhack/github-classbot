@@ -49,7 +49,7 @@ export default async function (
   }
 
   // Figure out author of job's head_sha
-  const commitResp = await context.octokit.repos.getCommit({
+  const commitResp = await context.octokit.rest.repos.getCommit({
     owner,
     repo,
     ref: context.payload.workflow_job.head_sha,
@@ -92,7 +92,7 @@ export default async function (
   // Get autograde result JSON (from job artifacts)
   // First, find artifact id
   const artifactName = config.gradelog.artifact_name;
-  const artifactResp = await context.octokit.actions.listArtifactsForRepo({
+  const artifactResp = await context.octokit.rest.actions.listArtifactsForRepo({
     repo,
     owner,
     name: artifactName,
@@ -119,7 +119,7 @@ export default async function (
   log?.info(`Found artifact ${artifact.name} with id ${artifact.id}`);
 
   // Next, download the actual artifact
-  const dlResp = await context.octokit.actions.downloadArtifact({
+  const dlResp = await context.octokit.rest.actions.downloadArtifact({
     owner,
     repo,
     artifact_id: artifact.id,

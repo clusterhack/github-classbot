@@ -29,7 +29,7 @@ export default async function (
 
   // Start autograder unit tests
   // TODO This is just a fake check run
-  const run = await context.octokit.checks.create({
+  const run = await context.octokit.rest.checks.create({
     owner,
     repo,
     name: "Autograding (fake)",
