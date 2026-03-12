@@ -59,7 +59,9 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     // log?.info(context);
     log?.info("Watchdog: Start (on push)");
     const { owner, repo } = context.repo();
-    log?.info(`Watchdog: owner/repo = ${owner}/${repo}`);
+    log?.info(
+      `Watchdog: owner/repo = ${owner}/${repo} (inst: ${context.payload.installation?.id})`
+    );
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
     const botUser = classbotGitUserConfig(context);
@@ -73,7 +75,9 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     // log?.info(context);
     log?.info("Autograde: Start (on check_suite.requested)");
     const { owner, repo } = context.repo();
-    log?.info(`Autograde: owner/repo = ${owner}/${repo}`);
+    log?.info(
+      `Autograde: owner/repo = ${owner}/${repo} (inst: ${context.payload.installation?.id})`
+    );
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
@@ -85,7 +89,7 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
     // log?.info(context);
     log?.info("Badges: Start (on check_run)");
     const { owner, repo } = context.repo();
-    log?.info(`Badges: owner/repo = ${owner}/${repo}`);
+    log?.info(`Badges: owner/repo = ${owner}/${repo} (inst: ${context.payload.installation?.id})`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
@@ -96,7 +100,7 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   app.on("workflow_job.completed", async context => {
     log?.info("Gradelog: Start (on workflow_job.completed");
     const { owner, repo } = context.repo();
-    log?.info(`Gradelog: owner/repo = ${owner}/${repo}`);
+    log?.info(`Gradelog: owner/repo = ${owner}/${repo} (inst: ${context.payload.installation?.id})`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 
@@ -109,14 +113,14 @@ CLASSBOT_DB_USER: ${process.env.CLASSBOT_DB_USER}
   app.on("fork", async context => {
     const repoName = context.payload.repository.full_name;
     const forkeeName = context.payload.forkee.full_name;
-    log?.info(`Fork: repo = ${repoName}, forkee = ${forkeeName}`);
+    log?.info(`Fork: repo = ${repoName}, forkee = ${forkeeName} (inst: ${context.payload.installation?.id})`);
     // Info only, setup tasks handled in "repository.created" and "push" ...
   });
 
   app.on("repository.created", async context => {
     log?.info("Setup: Start (on repository.created)");
     const { owner, repo } = context.repo();
-    log?.info(`Setup: owner/repo = ${owner}/${repo}`);
+    log?.info(`Setup: owner/repo = ${owner}/${repo} (inst: ${context.payload.installation?.id})`);
     if (classbotSkipRepo(owner, repo)) return;
     const config = await getConfig(context);
 

@@ -69,6 +69,22 @@ express.use(
 
 express.use("/classbot", webRoutes("/classbot", { logger: log }));
 
+async function logInstallations() {
+  // Log installations
+  const octokit = await probot.auth();
+  const resp = await octokit.rest.apps.listInstallations();
+  const installations = resp.data;
+  log.info(
+    "Installations:\n" +
+      installations
+        .map(
+          inst => `${inst.id}: ${inst.account?.name} <${inst.account?.login}> (${inst.account?.id})`
+        )
+        .join("\n")
+  );
+}
+await logInstallations();
+
 express.listen(3000, () => {
   log.info("Server is running at http://localhost:3000");
 });
