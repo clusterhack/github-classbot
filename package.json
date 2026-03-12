@@ -25,7 +25,9 @@
     "start": "node lib/main.js",
     "deploy": "pm2 start --name classbot --time lib/main.js",
     "test": "jest",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "_sql": "mariadb --user=$CLASSBOT_DB_USER --password=$CLASSBOT_DB_PASSWORD $CLASSBOT_DB_DATABASE",
+    "sql": "dotenv -- npm run _sql"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
