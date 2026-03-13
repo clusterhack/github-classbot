@@ -11,6 +11,7 @@ npm-debug.log
 *.pem
 !mock-cert.pem
 .env*
+.nvmrc
 coverage
 lib
 lib-ui
