@@ -3,6 +3,39 @@ import { Model } from "objection";
 import { User } from "./user.js";
 import { Assignment } from "./classroom.js";
 
+export class AcceptedAssignment extends Model {
+  assignment_id!: number;
+  userid!: number;
+
+  repo!: string; // Plain name (*without* owner; that should be retrieved via assignment->org)
+  date?: Date;
+
+  static get tableName() {
+    return "accepted_assignments";
+  }
+
+  static get relationMappings() {
+    return {
+      user: {
+        relation: Model.BelongsToOneRelation,
+        modelClass: User,
+        join: {
+          from: "accepted_assignments.userid",
+          to: "users.id",
+        },
+      },
+      assignment: {
+        relation: Model.BelongsToOneRelation,
+        modelClass: Assignment,
+        join: {
+          from: "accepted_assignments.assignment_id",
+          to: "assignments.id",
+        },
+      },
+    };
+  }
+}
+
 // Base model for all assignment submissions
 // (currently we only have code submissions via push, but.. who knows?)
 export class Submission extends Model {
@@ -39,6 +72,15 @@ export class Submission extends Model {
       },
       // -------------------------------------------------------
       // The remaining relations (below) may or may not be present
+      accepted_assignment: {
+        // TODO XXX Currently no FK constraint (see initial_schema def)
+        relation: Model.BelongsToOneRelation,
+        modelClass: AcceptedAssignment,
+        join: {
+          from: ["submissions.userid", "submissions.assignment_id"],
+          to: ["accepted_assignments.userid", "accepted_assignments.assignment_id"],
+        },
+      },
       code: {
         relation: Model.HasOneRelation,
         modelClass: CodeSubmission,

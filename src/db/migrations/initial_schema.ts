@@ -10,19 +10,22 @@ export async function up(knex: Knex): Promise<void> {
       table.integer("id").primary(); // Github org id
       table.string("name", 64).notNullable().unique(); // Github org name
       table.string("description", 64);
+      table.integer("installation_id");
     })
     .createTable("assignments", table => {
       table.increments("id").primary();
       table.integer("orgId").notNullable().references("classroom_orgs.id");
       table.string("name", 64).notNullable();
       table.unique(["orgId", "name"]);
+      table.string("starter_repo", 64).notNullable();
+      table.string("repo_slug", 64).notNullable();
       table.datetime("due");
     })
     .createTable("users", table => {
       table.integer("id").primary();
       table.string("username", 32).notNullable().unique();
       table.string("sisId", 32).unique();
-      table.enu("role", stringEnumValues(UserRole)); // TODO! Get values from UserRole enum !!
+      table.enu("role", stringEnumValues(UserRole));
       table.string("name", 128);
     })
     .createTable("memberships", table => {
@@ -38,6 +41,13 @@ export async function up(knex: Knex): Promise<void> {
       table.string("username", 32).references("users.username");
       table.datetime("expires").notNullable();
     })
+    .createTable("accepted_assignments", table => {
+      table.integer("userid").notNullable().references("users.id");
+      table.integer("assignment_id").unsigned().notNullable().references("assignments.id");
+      table.string("repo", 64).notNullable();
+      table.datetime("date"); // TODO? Add default now
+      table.primary(["userid", "assignment_id"]);
+    })
     .createTable("submissions", table => {
       table.increments("id").primary();
       table.datetime("timestamp").notNullable();
@@ -45,6 +55,12 @@ export async function up(knex: Knex): Promise<void> {
       table.integer("assignment_id").unsigned().notNullable().references("assignments.id");
       table.integer("score");
       table.integer("max_score");
+      // TODO XXX When assignment acceptance is migrated from Classroom to us,
+      //   add FK constraint below; see also db/models/submission:Submission
+      // table
+      //   .foreign(["userid", "assignment_id"])
+      //   .references(["userid", "assignment_id"])
+      //   .inTable("accepted_assignments");
 
       table.index("timestamp");
       // table.check("?? >= 0", ["score"], "score_non_negative");
@@ -78,9 +94,10 @@ export async function up(knex: Knex): Promise<void> {
 export async function down(knex: Knex): Promise<void> {
   // TODO? Check if this order works (or fails due to FK constraints)
   await knex.schema
+    .dropTableIfExists("alerts")
     .dropTableIfExists("code_submissions")
     .dropTableIfExists("submissions")
-    .dropTableIfExists("alerts")
+    .dropTableIfExists("accepted_assignments")
     .dropTableIfExists("sessions")
     .dropTableIfExists("memberships")
     .dropTableIfExists("users")

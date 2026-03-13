@@ -5,6 +5,7 @@ export class ClassroomOrg extends Model {
   name!: string; // Github org name
 
   description?: string;
+  installation_id?: number; // GitHub app installation id for this org
 
   static get tableName() {
     return "classroom_orgs";
@@ -30,6 +31,8 @@ export class Assignment extends Model {
   orgId!: number;
   name!: string;
 
+  starter_repo!: string; // Plain name (*without* owner; that should be retrieved via org)
+  repo_slug!: string; // Plain name prefix for student repos (owner should be retrieved via org)
   due?: Date;
 
   static get tableName() {
