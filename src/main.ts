@@ -85,6 +85,7 @@ async function logInstallations() {
 }
 await logInstallations();
 
-express.listen(3000, () => {
-  log.info("Server is running at http://localhost:3000");
+const serverPort = parseInt(process.env.PORT || "3000");
+express.listen(serverPort, () => {
+  log.info(`Server is running at http://localhost:${serverPort}`);
 });
