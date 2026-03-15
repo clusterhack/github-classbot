@@ -96,7 +96,7 @@ export function webRoutes(routePrefix: string, options?: WebRouteOptions) {
     router.use(
       "/ui",
       createProxyMiddleware({
-        target: `http://localhost:${process.env.VITE_DEV_PORT || 4000}/`,
+        target: `http://localhost:${process.env.VITE_DEV_PORT || 4000}/classbot/ui`,
         ws: true,
       })
     );

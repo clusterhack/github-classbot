@@ -30,5 +30,6 @@ export default defineConfig({
     //   "/classbot/api": "http://localhost:3000/",
     //   "/classbot/auth": "http://localhost:3000/",
     // },
+    allowedHosts: ["classbot.do.clusterhack.net", "classbot-test.do.clusterhack.net"],
   },
 });
