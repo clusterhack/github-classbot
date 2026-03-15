@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    //"composite": true,
+    "composite": true,
     "target": "esnext",
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
@@ -16,6 +16,7 @@
     "isolatedModules": true,
     // "noEmit": true,
     "outDir": "./lib-ui", // XXX Gets deleted by Vite build; does it matter?
+    "rootDir": "./src-ui",
     "jsx": "react-jsx"
   },
   "include": ["src-ui/"],
