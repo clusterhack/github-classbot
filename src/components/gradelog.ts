@@ -75,7 +75,7 @@ export default async function (
     //   name: assignmentName,
     // })
     .where("orgId", assignmentOrgId)
-    .where("assignments.name", assignmentName)
+    .where("assignments.repo_slug", assignmentName)
     .withGraphJoined({ org: true });
   if (assignmentRows.length === 0) {
     log.error(
