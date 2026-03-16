@@ -150,10 +150,11 @@ export function oauthRoutes(org_name: string, options?: OAuthRoutesOptions) {
           log?.info(`Inserted new user ${username} (${userid}) with ${userRole} role`);
         }
 
-        req.session.data = { userid, username };
+        req.session.data = { userid, username, access_token };
         log?.info(`Set session.data to:\n${JSON.stringify(req.session.data, undefined, 2)}`);
 
         // Make session cookie expire at the same time as the OAuth access token
+        // If expires_in is undefined, then middleware will set maxAge instead, based on COOKIE_TTL_DAYS env var
         const expires_in = tokenData.get("expires_in");
         if (expires_in) {
           req.session.cookie.expires = new Date(now + parseInt(expires_in) * 1000);

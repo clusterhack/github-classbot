@@ -98,7 +98,7 @@ class SessionStore extends Store {
 
 export async function sessionGarbageCollect(): Promise<number> {
   // Return number of deleted rows
-  return await UserSession.query().delete().where("expires", "<", new Date());
+  return await UserSession.query().where("expires", "<", new Date()).del();
 }
 
 export function sessionMiddleware(options?: SessionMiddlewareOptions) {

@@ -37,9 +37,12 @@ export class User extends Model {
 }
 
 export interface UserSessionData {
-  // Basic GitHub user info (so we don't have to query DB as often)
+  // Basic GitHub user info (so we don't have to query DB as often), plus auth token
+  // Currently we set cookie expiration to match access_token expiration, and
+  // we do not use access_token_expires; in future, may add token refresh in
   userid?: number;
   username?: string;
+  access_token?: string;
 }
 
 // Based on https://stackoverflow.com/a/65787814
