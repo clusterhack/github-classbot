@@ -165,7 +165,7 @@ async function getRecords(
       fetchRelExpr.assignment = { org: true };
     }
     if (where.orgName) query = query.where("assignment:org:name", where.orgName);
-    if (where.assignmentName) query = query.where("assignment:name", where.assignmentName);
+    if (where.assignmentName) query = query.where("assignment:repo_slug", where.assignmentName);
   }
   query = query.orderBy(sortColumn, "desc");
   query = paginatedQuery(query, pagination);
