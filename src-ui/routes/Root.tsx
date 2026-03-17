@@ -1,6 +1,6 @@
 import React from "react";
 import { createRootRouteWithContext, Link as RouterLink, Outlet } from "@tanstack/react-router";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
@@ -30,6 +30,14 @@ import HomeIcon from "@mui/icons-material/Home";
 import SecurityIcon from "@mui/icons-material/Security";
 
 import classbotLogo from "../assets/classbot.png";
+
+const selfProfileQueryOptions = queryOptions({
+  queryKey: ["self", "profile"],
+  queryFn: async () => {
+    const res = await fetch("/classbot/api/self/profile");
+    return res.json();
+  },
+});
 
 // Note: Based mostly on MUI docs examples (primarily for Drawer, Popover, and router usage),
 //   with some tweaks based on https://codesandbox.io/s/material-ui-responsive-drawer-skqdw
@@ -61,7 +69,7 @@ const theme = createTheme({
 });
 
 function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
-  const { user } = Route.useLoaderData();
+  const { data: user } = useSuspenseQuery(selfProfileQueryOptions);
 
   //const theme = useTheme();
   const isMediaSmall = useMediaQuery(theme.breakpoints.down("sm"));
@@ -226,10 +234,7 @@ function Root({ drawerWidth = 220 }: { drawerWidth?: number } = {}) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: Root,
-  loader: async () => {
-    const res = await fetch("/classbot/api/self/profile");
-    return { user: await res.json() };
-  },
+  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(selfProfileQueryOptions),
 });
 
 export default Root;
