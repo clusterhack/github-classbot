@@ -16,9 +16,9 @@ export async function up(knex: Knex): Promise<void> {
       table.increments("id").primary();
       table.integer("orgId").notNullable().references("classroom_orgs.id");
       table.string("name", 64).notNullable();
-      table.unique(["orgId", "name"]);
       table.string("starter_repo", 64).notNullable();
-      table.string("repo_slug", 64).unique().notNullable();
+      table.string("repo_slug", 64).notNullable();
+      table.unique(["orgId", "repo_slug"]);
       table.datetime("due");
     })
     .createTable("users", table => {
