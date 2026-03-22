@@ -2,7 +2,7 @@ import querystring from "node:querystring";
 import express from "express";
 
 import { Logger, ProbotOctokit } from "probot";
-import { RelationExpression } from "objection";
+import { RelationExpression, raw } from "objection";
 
 import { HTTPError } from "./types.js";
 import { User, UserRole } from "./db/models/user.js";
@@ -194,6 +194,34 @@ export function authMiddleware(login_url: string, options?: AuthMiddlewareOption
             let query = User.query().findById(userData.userid);
             if (options?.userFetchRelations !== undefined) {
               query = query.withGraphFetched(options.userFetchRelations);
+
+              // XXX Probably no harm in leaving installation_id in result (vs having undefined)
+              // query = query.modifyGraph("orgs", builder => {
+              //   builder.select("id", "name", "description");
+              //   console.log(builder.toKnexQuery().toString());
+              // });
+
+              // XXX FIXME?
+              // Adding a modification on stuff that's not fetched seems to just be ignored.
+              // Ideally, we should only be doing this if userFetchRelations contains orgs.assignments,
+              // but Objection doesn't expose QueryBuilder.parseRelationExpression in Typescript
+              // (and even then, the type annotation for the returned object is very incomplete)
+              // so.. just giving up (no time).
+              query = query.modifyGraph("orgs.assignments", builder => {
+                builder
+                  .leftOuterJoin("accepted_assignments", joinBuilder => {
+                    joinBuilder
+                      .on("accepted_assignments.assignment_id", "assignments.id")
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      .andOn("accepted_assignments.userid", raw("?", [userData.userid]) as any);
+                  })
+                  .select(
+                    "assignments.*",
+                    "accepted_assignments.repo as user_repo",
+                    "accepted_assignments.date as date_accepted"
+                  );
+                // log?.debug(`Modified graph fetch query: ${builder.toKnexQuery().toString()}`);
+              });
             }
             req.user = await query;
             if (req.user === undefined) {
