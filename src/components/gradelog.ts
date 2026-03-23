@@ -4,6 +4,7 @@ import { Probot, Context } from "probot";
 
 import { Assignment, AssignmentWithGraph } from "../db/models/classroom.js";
 import {
+  AcceptedAssignment,
   Submission,
   CodeSubmission,
   CodeSubmissionScoredBy,
@@ -72,7 +73,7 @@ export default async function (
   const assignmentRows = await Assignment.query()
     // .where({
     //   orgId: assignmentOrgId,
-    //   name: assignmentName,
+    //   repo_slug: assignmentName,
     // })
     .where("orgId", assignmentOrgId)
     .where("assignments.repo_slug", assignmentName)
@@ -153,12 +154,38 @@ export default async function (
     CodeSubmissionStatus
   );
 
-  // Insert database records
+  const author_id = commitResp.data.author.id;
+
+  // Insert database records for assignment acceptance, if not already present (upsert)
+  try {
+    const acceptedRec = await AcceptedAssignment.query()
+      .insertAndFetch({
+        userid: author_id,
+        assignment_id: assignment.id,
+        repo: repo,
+        // date: leave undefined/unmodified
+      })
+      .onConflict()
+      .ignore();
+    log?.info(
+      `Upserted AcceptedAssignment(userid=${author_id}, assignment_id=${assignment.id}, repo=${repo})`
+    );
+    // XXX Does .ignore() fetch the existing record, or is following condition always false?
+    if (acceptedRec.repo !== repo) {
+      log?.warn(`Repo mismatch: AcceptedAssignment (${acceptedRec.repo}) vs event (${repo})`);
+    }
+  } catch (err) {
+    log?.warn(
+      `Failed upsert AcceptedAssignment(userid=${author_id}, assignment_id=${assignment.id}): ${err}`
+    );
+  }
+
+  // Insert database records for submission
   // TODO? Is insertGraph more appropriate here (vs a transaction)?
   await Submission.transaction(async trx => {
     const sub = await Submission.query(trx).insertAndFetch({
       timestamp: timestamp,
-      userid: commitResp.data.author!.id, // XXX Why the heck doesn't ts infer not-null on .author?
+      userid: author_id,
       assignment_id: assignment.id,
       score: autograde?.score,
       max_score: autograde?.max_score,
