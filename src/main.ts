@@ -1,8 +1,8 @@
 // XXX Set up dotenv before importing anything else!
 import "./env.js";
 
-import { Model } from "objection";
-import Knex from "knex";
+import "./dbconfig.js";
+
 import Express from "express";
 import { createNodeMiddleware, createProbot } from "probot";
 // eslint-disable-next-line node/no-extraneous-import
@@ -12,24 +12,6 @@ import { getTransformStream } from "@probot/pino";
 
 import app from "./robot.js";
 import { webRoutes } from "./webroutes.js";
-
-/***********************************************************************
- * Database
- */
-
-const knex = Knex({
-  client: "mysql",
-  useNullAsDefault: true,
-  connection: {
-    host: "127.0.0.1",
-    port: 3306,
-    user: process.env.CLASSBOT_DB_USER,
-    password: process.env.CLASSBOT_DB_PASSWORD,
-    database: process.env.CLASSBOT_DB_DATABASE,
-  },
-});
-
-Model.knex(knex);
 
 /***********************************************************************
  * Server
